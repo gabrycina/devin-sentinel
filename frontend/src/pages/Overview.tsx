@@ -5,7 +5,7 @@ import { JobTable } from "@/components/JobTable";
 import { JobDrawer } from "@/components/JobDrawer";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { tint } from "@/lib/theme";
+import { tint, ACCENT, WARN } from "@/lib/theme";
 import { usePoll, type Metrics, type Job } from "@/lib/api";
 
 const isDelivered = (j: Job) =>
@@ -73,7 +73,7 @@ export function Overview() {
   const rollbackTime = duration(avgMinutes(incidents.filter(isDelivered), (j) => j.created_at, (j) => j.completed_at));
 
   const healthy = needsAttention === 0;
-  const heroColor = healthy ? "#059669" : "#d97706";
+  const heroColor = healthy ? ACCENT : WARN;
 
   return (
     <div className="space-y-6">
@@ -106,11 +106,11 @@ export function Overview() {
         </div>
 
         <Kpi value={String(criticalClosed)} label="Critical vulns closed" />
-        <Kpi value={String(m.prs_produced)} label="PRs generated" accent={m.prs_produced > 0 ? "#0d9488" : undefined} />
+        <Kpi value={String(m.prs_produced)} label="PRs generated" accent={m.prs_produced > 0 ? ACCENT : undefined} />
         <Kpi value={meanRemediation} label="Mean remediation" />
         <Kpi value={`${policyCompliance}%`} label="Policy compliance" />
-        <Kpi value={String(waitingJobs.length)} label="Human interventions" accent={waitingJobs.length > 0 ? "#d97706" : undefined} />
-        <Kpi value={waitingOnApproval} label="Waiting on approval" accent={waitingJobs.length > 0 ? "#d97706" : undefined} />
+        <Kpi value={String(waitingJobs.length)} label="Human interventions" accent={waitingJobs.length > 0 ? WARN : undefined} />
+        <Kpi value={waitingOnApproval} label="Waiting on approval" accent={waitingJobs.length > 0 ? WARN : undefined} />
         <Kpi value={rollbackTime} label="Rollback time" />
       </section>
 

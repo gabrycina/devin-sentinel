@@ -4,11 +4,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Rules as RulesData, Rule } from "@/lib/api";
-import { SEVERITY } from "@/lib/theme";
+import { SEVERITY, INFO } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 const TIER_COLOR = (name: string) =>
-  ({ critical: SEVERITY.critical, standard: "#2563eb", low: SEVERITY.low }[name] ?? "#2563eb");
+  ({ critical: SEVERITY.critical, standard: INFO, low: SEVERITY.low }[name] ?? INFO);
 
 type Sim = {
   tier: string;
@@ -121,7 +121,7 @@ export function Rules() {
             <Button size="sm" className="mt-2.5" onClick={runSim}>
               <Play className="size-3.5" /> Run classification
             </Button>
-            {dirty && <p className="mt-2 text-[11.5px] text-amber-600">Save changes to test the edited rules.</p>}
+            {dirty && <p className="mt-2 text-[11.5px] text-[#cbb173]">Save changes to test the edited rules.</p>}
           </div>
           <div className="p-5">
             <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Result</div>
@@ -145,7 +145,7 @@ export function Rules() {
                       <span className="size-1.5 rounded-full" style={{ background: TIER_COLOR(sim.tier) }} />
                       <span className="capitalize">{a.replace(/_/g, " ")}</span>
                       {sim.human_approval.includes(a) && (
-                        <span className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-medium text-amber-600">
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-medium text-[#cbb173]">
                           <UserCheck className="size-3" /> needs approval
                         </span>
                       )}
@@ -181,7 +181,7 @@ export function Rules() {
                 />
                 <button
                   onClick={() => removeRule(idx)}
-                  className="rounded-md p-1.5 text-muted-foreground/60 hover:bg-muted hover:text-rose-500"
+                  className="rounded-md p-1.5 text-muted-foreground/60 hover:bg-muted hover:text-[#d68f8f]"
                   title="Remove rule"
                 >
                   <Trash2 className="size-4" />
@@ -220,9 +220,9 @@ export function Rules() {
                           >
                             <span
                               className={cn("grid size-4 place-items-center rounded border transition-colors")}
-                              style={on ? { background: color, borderColor: color } : { borderColor: "#cbd5e1" }}
+                              style={on ? { background: color, borderColor: color } : { borderColor: "hsl(var(--border))" }}
                             >
-                              {on && <Check className="size-3 text-white" />}
+                              {on && <Check className="size-3 text-[#12140f]" />}
                             </span>
                             <span className="capitalize">{art.replace(/_/g, " ")}</span>
                           </button>
@@ -232,7 +232,7 @@ export function Rules() {
                               className={cn(
                                 "inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10.5px] font-medium transition-colors",
                                 approval
-                                  ? "border-amber-500/40 bg-amber-500/10 text-amber-600"
+                                  ? "border-[#cbb173]/40 bg-[#cbb173]/10 text-[#cbb173]"
                                   : "border-border text-muted-foreground/60 hover:text-foreground"
                               )}
                               title="Toggle human approval requirement"

@@ -5,7 +5,7 @@ import { GroupedJobList } from "@/components/GroupedJobList";
 import { JobDrawer } from "@/components/JobDrawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePoll, type Job } from "@/lib/api";
-import { WORKLOADS, tint, type WorkloadKey } from "@/lib/theme";
+import { WORKLOADS, tint, ACCENT, type WorkloadKey } from "@/lib/theme";
 
 const STATUS_FILTERS = [
   { key: "all", label: "All" },
@@ -49,7 +49,7 @@ export function Workload() {
         </div>
         <div className="flex gap-6 pt-1">
           <HeaderStat label="Total" value={mine.length} />
-          <HeaderStat label="Delivered" value={delivered} color="#059669" />
+          <HeaderStat label="Delivered" value={delivered} color={ACCENT} />
           <HeaderStat label="In progress" value={running} color={running ? w.hex : undefined} />
           <HeaderStat label="Eng. saved" value={`${hours.toFixed(1)}h`} />
         </div>

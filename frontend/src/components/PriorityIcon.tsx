@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 // Ported from the Linear clone's priority-icon, mapped to our severity scale.
 const config: Record<string, { icon: typeof Minus; className: string }> = {
-  critical: { icon: TriangleAlert, className: "text-orange-500" },
+  critical: { icon: TriangleAlert, className: "text-[#d68f8f]" },
   high: { icon: SignalHigh, className: "text-foreground" },
   medium: { icon: SignalMedium, className: "text-muted-foreground" },
   low: { icon: SignalLow, className: "text-muted-foreground/70" },

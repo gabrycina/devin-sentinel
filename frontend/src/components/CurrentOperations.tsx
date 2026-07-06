@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { UserCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { WORKLOADS, WORKLOAD_ORDER, tint, type WorkloadKey } from "@/lib/theme";
+import { WORKLOADS, WORKLOAD_ORDER, tint, ACCENT, WARN, type WorkloadKey } from "@/lib/theme";
 import { timeAgo } from "@/lib/utils";
 import type { Job } from "@/lib/api";
 
@@ -37,14 +37,14 @@ function OperationCard({ workloadKey, job, onSelect }: { workloadKey: WorkloadKe
   const w = WORKLOADS[workloadKey];
   const s = job ? stage(job) : null;
 
-  const active = !!s;
+  const accent = s ? (s.waiting ? WARN : ACCENT) : null;
   return (
     <button
       onClick={() => (job ? onSelect(job) : nav(`/w/${workloadKey}`))}
       className="hover-lift flex w-full flex-col gap-2 rounded-lg border px-3.5 py-3 text-left"
       style={{
-        borderColor: active ? tint(w.hex, 0.3) : "hsl(var(--border))",
-        background: active ? `linear-gradient(135deg, ${tint(w.hex, 0.07)}, transparent 70%)` : "hsl(var(--card))",
+        borderColor: accent ? tint(accent, 0.35) : "hsl(var(--border))",
+        background: accent ? `linear-gradient(135deg, ${tint(accent, 0.1)}, transparent 72%)` : "hsl(var(--card))",
       }}
     >
       <div className="flex items-center gap-2">
@@ -58,14 +58,14 @@ function OperationCard({ workloadKey, job, onSelect }: { workloadKey: WorkloadKe
       {s ? (
         <>
           <div className="flex items-center gap-1.5">
-            {s.waiting && <UserCheck className="size-3.5 shrink-0 text-amber-600" />}
-            <span className={"truncate text-[13px] font-medium " + (s.waiting ? "text-amber-600" : "text-foreground")}>
+            {s.waiting && <UserCheck className="size-3.5 shrink-0" style={{ color: WARN }} />}
+            <span className="truncate text-[13px] font-medium" style={s.waiting ? { color: WARN } : undefined}>
               {s.title}
             </span>
           </div>
           {s.sub && <div className="truncate text-[11px] text-muted-foreground">{s.sub}</div>}
           <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
-            <div className="h-full rounded-full transition-all" style={{ width: `${s.pct}%`, background: s.waiting ? "#d97706" : w.hex }} />
+            <div className="h-full rounded-full transition-all" style={{ width: `${s.pct}%`, background: accent ?? ACCENT }} />
           </div>
         </>
       ) : (

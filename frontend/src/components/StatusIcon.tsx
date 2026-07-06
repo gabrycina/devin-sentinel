@@ -4,12 +4,12 @@ import { cn } from "@/lib/utils";
 // Ported from the Linear clone's status-icon, mapped to our job lifecycle.
 const config: Record<string, { icon: typeof Circle; className: string; live?: boolean }> = {
   queued: { icon: CircleDashed, className: "text-muted-foreground" },
-  dispatched: { icon: Circle, className: "text-blue-400" },
-  running: { icon: CircleDot, className: "text-yellow-500", live: true },
-  needs_attention: { icon: CircleEllipsis, className: "text-amber-500" },
-  pr_open: { icon: CircleCheck, className: "text-teal-400" },
-  succeeded: { icon: CircleCheck, className: "text-emerald-500" },
-  failed: { icon: CircleX, className: "text-rose-500" },
+  dispatched: { icon: Circle, className: "text-[#8f98a6]" },
+  running: { icon: CircleDot, className: "text-[#a9c39a]", live: true },
+  needs_attention: { icon: CircleEllipsis, className: "text-[#cbb173]" },
+  pr_open: { icon: CircleCheck, className: "text-[#a9c39a]" },
+  succeeded: { icon: CircleCheck, className: "text-[#a9c39a]" },
+  failed: { icon: CircleX, className: "text-[#d68f8f]" },
 };
 
 export function StatusIcon({ status, className }: { status: string; className?: string }) {

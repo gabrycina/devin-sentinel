@@ -1,7 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
-import { WORKLOADS, WORKLOAD_ORDER, EVENT_LABELS, tint } from "@/lib/theme";
+import { WORKLOADS, WORKLOAD_ORDER, EVENT_LABELS, tint, ACCENT } from "@/lib/theme";
 import type { Metrics } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -106,7 +106,7 @@ export function Pipeline({ m }: { m: Metrics }) {
             >
               <span
                 className={cn("size-1.5 rounded-full", active && "animate-pulse-dot")}
-                style={{ background: active ? "#059669" : "#cbd5e1" }}
+                style={{ background: active ? ACCENT : "#3a3f3c" }}
               />
               {EVENT_LABELS[e.id]}
             </div>

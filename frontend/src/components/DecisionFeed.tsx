@@ -1,5 +1,5 @@
 import { StatusIcon } from "@/components/StatusIcon";
-import { WORKLOADS, tint, type WorkloadKey } from "@/lib/theme";
+import { WORKLOADS, tint, WARN, type WorkloadKey } from "@/lib/theme";
 import { timeAgo } from "@/lib/utils";
 import type { Job } from "@/lib/api";
 
@@ -82,8 +82,9 @@ function DecisionCard({ job, onSelect }: { job: Job; onSelect: (j: Job) => void 
             <span className="mr-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">{s.label}</span>
             <span
               className={
-                s.flag === "approval" ? "font-medium text-amber-600" : s.flag === "outcome" ? "font-medium text-foreground" : "text-foreground/80"
+                s.flag === "approval" ? "font-medium" : s.flag === "outcome" ? "font-medium text-foreground" : "text-foreground/80"
               }
+              style={s.flag === "approval" ? { color: WARN } : undefined}
             >
               {s.value}
             </span>
