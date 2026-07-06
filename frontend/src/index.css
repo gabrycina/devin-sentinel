@@ -1,0 +1,58 @@
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* warm-tinted neutrals + one confident indigo accent */
+    --background: 40 20% 98.5%;
+    --foreground: 222 24% 16%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 24% 16%;
+    --muted: 40 16% 95.5%;
+    --muted-foreground: 222 10% 46%;
+    --subtle: 40 16% 97%;
+    --border: 222 16% 91%;
+    --input: 222 16% 90%;
+    --primary: 243 72% 58%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 243 72% 58%;
+    --radius: 0.6rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "cv01", "ss01";
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: hsl(var(--primary) / 0.16);
+  }
+  /* tabular numerals for anything metric-like */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+}
+
+/* thin, refined scrollbars (Linear-esque) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(222 12% 82%);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(222 12% 72%);
+  background-clip: content-box;
+}

@@ -14,13 +14,18 @@ import hashlib
 import hmac
 import logging
 
+from pathlib import Path
+
 from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 from . import github_client, metrics, orchestrator, policy, scanner, store
 from .config import settings
 from .dashboard import render_dashboard
 from .issue_format import parse_finding
+
+FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 log = logging.getLogger("sentinel.server")
@@ -160,6 +165,21 @@ async def api_events():
     return store.recent_events()
 
 
+@app.get("/api/rules")
+async def api_rules():
+    p = policy.load_policy()
+    return {**p, "repo": settings.github_repo}
+
+
+@app.get("/api/config")
+async def api_config():
+    return {
+        "mode": "DRY RUN" if settings.dry_run else "LIVE",
+        "repo": settings.github_repo,
+        "incident_repo": settings.incident_repo,
+    }
+
+
 @app.post("/api/poll")
 async def force_poll():
     return {"reconciled": orchestrator.poll_once()}
@@ -170,6 +190,16 @@ async def healthz():
     return {"ok": True}
 
 
-@app.get("/", response_class=HTMLResponse)
-async def dashboard():
-    return render_dashboard(metrics.compute(), store.all_jobs(), store.recent_events(20))
+# --------------------------------------------------------------------------- #
+# Serve the built React SPA (falls back to the server-rendered page if unbuilt)
+# --------------------------------------------------------------------------- #
+if (FRONTEND_DIST / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+
+
+@app.get("/{full_path:path}", response_class=HTMLResponse)
+async def spa(full_path: str):
+    index = FRONTEND_DIST / "index.html"
+    if index.exists():
+        return FileResponse(index)
+    return HTMLResponse(render_dashboard(metrics.compute(), store.all_jobs(), store.recent_events(20)))

@@ -48,7 +48,18 @@ cp .env.example .env         # set DEVIN_API_KEY (cog_...), DEVIN_ORG_ID, GITHUB
 docker compose up --build    # dashboard on http://localhost:8000
 ```
 Find your Devin org id: `curl -s https://api.devin.ai/v3/self -H "Authorization: Bearer $DEVIN_API_KEY"`.
-Local (no Docker): `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt && .venv/bin/uvicorn app.server:app`.
+Docker builds the React UI and serves it from the FastAPI backend (single container).
+
+**Local dev (no Docker):**
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/uvicorn app.server:app          # backend :8000 (serves prebuilt UI if present)
+cd frontend && npm install && npm run dev  # hot-reloading UI on :5173, proxies /api to :8000
+```
+The dashboard is a **React + Tailwind + shadcn/ui** SPA (light "Stripe-grade" theme, Geist type).
+Its protagonist is the live **Events → Rules engine → Workloads** pipeline — every node is clickable
+and drills into a focused view (progressive disclosure), so a VP sees signal first, detail on demand.
+If the UI isn't built, the backend falls back to a server-rendered dashboard automatically.
 
 > **Zero-cost dry run:** `DRY_RUN=true` runs the entire pipeline — every workload, the dashboard, the ROI math — **without spending a single ACU.**
 
