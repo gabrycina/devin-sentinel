@@ -1,59 +1,56 @@
-"""SQLite persistence for remediations. Deliberately dependency-free.
+"""SQLite persistence for control-plane jobs. Dependency-free.
 
-One row per finding. The pipeline is idempotent on `finding_id` so re-running a
-scan or replaying a webhook never creates duplicate work.
+One row per job, idempotent on `job_id` so replaying an event or re-running a
+scan never creates duplicate work. `policies` and `details` are stored as JSON.
 """
 from __future__ import annotations
 
+import json
 import sqlite3
 import threading
 import time
 from typing import Any
 
 from .config import settings
-from .models import OPEN_STATUSES, Remediation, Status
+from .models import OPEN_STATUSES, Job
 
 _lock = threading.Lock()
 
+# Columns that hold JSON-encoded structures.
+_JSON_COLS = {"policies", "details"}
+
+_COLUMNS = [
+    "job_id", "workload", "event_type", "severity", "title", "reason", "source",
+    "repo", "issue_number", "issue_url", "session_id", "session_url",
+    "devin_status", "devin_status_detail", "acus_consumed", "status", "pr_url",
+    "tests_passed", "summary", "error", "policies", "details", "eng_minutes_saved",
+    "created_at", "dispatched_at", "completed_at",
+]
+
 _SCHEMA = """
-CREATE TABLE IF NOT EXISTS remediations (
-    finding_id           TEXT PRIMARY KEY,
-    source               TEXT,
-    severity             TEXT,
-    title                TEXT,
-    package              TEXT,
-    cve                  TEXT,
-    status               TEXT,
-    issue_number         INTEGER,
-    issue_url            TEXT,
-    session_id           TEXT,
-    session_url          TEXT,
-    devin_status         TEXT,
-    devin_status_detail  TEXT,
-    acus_consumed        REAL,
-    pr_url               TEXT,
-    tests_passed         INTEGER,
-    summary              TEXT,
-    error                TEXT,
-    created_at           REAL,
-    dispatched_at        REAL,
-    completed_at         REAL
+CREATE TABLE IF NOT EXISTS jobs (
+    job_id TEXT PRIMARY KEY
 );
 CREATE TABLE IF NOT EXISTS events (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     ts        REAL,
     kind      TEXT,
-    finding_id TEXT,
+    job_id    TEXT,
     message   TEXT
 );
 """
 
-_COLUMNS = [
-    "finding_id", "source", "severity", "title", "package", "cve", "status",
-    "issue_number", "issue_url", "session_id", "session_url", "devin_status",
-    "devin_status_detail", "acus_consumed", "pr_url", "tests_passed", "summary",
-    "error", "created_at", "dispatched_at", "completed_at",
-]
+# Column -> SQLite type, used to lazily migrate the jobs table.
+_COL_TYPES = {
+    "workload": "TEXT", "event_type": "TEXT", "severity": "TEXT", "title": "TEXT",
+    "reason": "TEXT", "source": "TEXT", "repo": "TEXT", "issue_number": "INTEGER",
+    "issue_url": "TEXT", "session_id": "TEXT", "session_url": "TEXT",
+    "devin_status": "TEXT", "devin_status_detail": "TEXT", "acus_consumed": "REAL",
+    "status": "TEXT", "pr_url": "TEXT", "tests_passed": "INTEGER", "summary": "TEXT",
+    "error": "TEXT", "policies": "TEXT", "details": "TEXT",
+    "eng_minutes_saved": "REAL", "created_at": "REAL", "dispatched_at": "REAL",
+    "completed_at": "REAL",
+}
 
 
 def _connect() -> sqlite3.Connection:
@@ -65,61 +62,64 @@ def _connect() -> sqlite3.Connection:
 def init_db() -> None:
     with _lock, _connect() as conn:
         conn.executescript(_SCHEMA)
+        existing = {r["name"] for r in conn.execute("PRAGMA table_info(jobs)")}
+        for col, typ in _COL_TYPES.items():
+            if col not in existing:
+                conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {typ}")
 
 
-def _row_to_remediation(row: sqlite3.Row) -> Remediation:
+def _row_to_job(row: sqlite3.Row) -> Job:
     d = dict(row)
+    for col in _JSON_COLS:
+        d[col] = json.loads(d[col]) if d.get(col) else ([] if col == "policies" else {})
     if d.get("tests_passed") is not None:
         d["tests_passed"] = bool(d["tests_passed"])
-    return Remediation(**d)
+    return Job(**{k: d.get(k) for k in _COLUMNS})
 
 
-def upsert(rem: Remediation) -> None:
-    d = rem.to_dict()
+def upsert(job: Job) -> None:
+    d = job.to_dict()
+    for col in _JSON_COLS:
+        d[col] = json.dumps(d.get(col) or ([] if col == "policies" else {}))
     if d.get("tests_passed") is not None:
         d["tests_passed"] = int(d["tests_passed"])
     placeholders = ", ".join(f":{c}" for c in _COLUMNS)
-    updates = ", ".join(f"{c}=excluded.{c}" for c in _COLUMNS if c != "finding_id")
+    updates = ", ".join(f"{c}=excluded.{c}" for c in _COLUMNS if c != "job_id")
     sql = (
-        f"INSERT INTO remediations ({', '.join(_COLUMNS)}) VALUES ({placeholders}) "
-        f"ON CONFLICT(finding_id) DO UPDATE SET {updates}"
+        f"INSERT INTO jobs ({', '.join(_COLUMNS)}) VALUES ({placeholders}) "
+        f"ON CONFLICT(job_id) DO UPDATE SET {updates}"
     )
     with _lock, _connect() as conn:
         conn.execute(sql, {c: d.get(c) for c in _COLUMNS})
 
 
-def get(finding_id: str) -> Remediation | None:
+def get(job_id: str) -> Job | None:
     with _lock, _connect() as conn:
-        row = conn.execute(
-            "SELECT * FROM remediations WHERE finding_id = ?", (finding_id,)
-        ).fetchone()
-    return _row_to_remediation(row) if row else None
+        row = conn.execute("SELECT * FROM jobs WHERE job_id = ?", (job_id,)).fetchone()
+    return _row_to_job(row) if row else None
 
 
-def all_remediations() -> list[Remediation]:
+def all_jobs() -> list[Job]:
     with _lock, _connect() as conn:
-        rows = conn.execute(
-            "SELECT * FROM remediations ORDER BY created_at DESC"
-        ).fetchall()
-    return [_row_to_remediation(r) for r in rows]
+        rows = conn.execute("SELECT * FROM jobs ORDER BY created_at DESC").fetchall()
+    return [_row_to_job(r) for r in rows]
 
 
-def open_remediations() -> list[Remediation]:
-    """Rows the poller still needs to reconcile against Devin."""
+def open_jobs() -> list[Job]:
     marks = ",".join("?" * len(OPEN_STATUSES))
     with _lock, _connect() as conn:
         rows = conn.execute(
-            f"SELECT * FROM remediations WHERE status IN ({marks}) AND session_id != ''",
+            f"SELECT * FROM jobs WHERE status IN ({marks}) AND session_id != ''",
             OPEN_STATUSES,
         ).fetchall()
-    return [_row_to_remediation(r) for r in rows]
+    return [_row_to_job(r) for r in rows]
 
 
-def log_event(kind: str, finding_id: str = "", message: str = "") -> None:
+def log_event(kind: str, job_id: str = "", message: str = "") -> None:
     with _lock, _connect() as conn:
         conn.execute(
-            "INSERT INTO events (ts, kind, finding_id, message) VALUES (?, ?, ?, ?)",
-            (time.time(), kind, finding_id, message),
+            "INSERT INTO events (ts, kind, job_id, message) VALUES (?, ?, ?, ?)",
+            (time.time(), kind, job_id, message),
         )
 
 

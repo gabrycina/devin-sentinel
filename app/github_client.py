@@ -59,3 +59,19 @@ def get_pr(pr_number: int) -> dict[str, Any] | None:
             return None
         r.raise_for_status()
         return r.json()
+
+
+def get_pr_files(pr_number: int) -> list[str]:
+    """Return the list of file paths changed in a PR (for policy classification)."""
+    with _client() as c:
+        r = c.get(f"{_API}/repos/{settings.github_repo}/pulls/{pr_number}/files",
+                  params={"per_page": 100})
+        r.raise_for_status()
+        return [f["filename"] for f in r.json()]
+
+
+def set_commit_status(sha: str, state: str, description: str, context: str = "sentinel/governance") -> None:
+    """Set a commit status check (pending|success|failure) on the PR head."""
+    with _client() as c:
+        c.post(f"{_API}/repos/{settings.github_repo}/statuses/{sha}",
+               json={"state": state, "description": description[:140], "context": context})

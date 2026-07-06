@@ -1,4 +1,10 @@
-"""Domain types for the remediation pipeline."""
+"""Domain types for the Engineering Control Plane.
+
+A single generic record — `Job` — represents one unit of autonomous work,
+regardless of which workload produced it (security / governance / incident).
+Workload-specific data lives in the flexible `details` dict, and the governance
+`policies` list is what powers the "auto-satisfied vs. needs-human-approval" view.
+"""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
@@ -6,36 +12,57 @@ from enum import Enum
 from typing import Any
 
 
-class Status(str, Enum):
-    """Lifecycle of a single finding as it flows through the pipeline."""
+class Workload(str, Enum):
+    SECURITY = "security"       # Prevent: vulnerability & dependency remediation
+    GOVERNANCE = "governance"   # Govern: policy/compliance artifacts on a change
+    INCIDENT = "incident"       # Respond: autonomous incident triage & rollback
 
-    QUEUED = "queued"            # finding ingested, not yet handed to Devin
-    DISPATCHED = "dispatched"    # Devin session created
-    RUNNING = "running"          # Devin actively working
-    NEEDS_ATTENTION = "needs_attention"  # Devin blocked, waiting on a human
-    PR_OPEN = "pr_open"          # Devin opened a pull request
-    SUCCEEDED = "succeeded"      # remediated (outcome=fixed)
-    FAILED = "failed"            # Devin could not remediate
+
+class EventType(str, Enum):
+    SECURITY_FINDING = "security_finding"
+    DEPENDENCY_UPDATE = "dependency_update"
+    FAILED_CI = "failed_ci"
+    POLICY_VIOLATION = "policy_violation"
+    PULL_REQUEST = "pull_request"
+    INCIDENT_ALERT = "incident_alert"
+
+
+class PolicyStatus(str, Enum):
+    AUTO_SATISFIED = "auto_satisfied"   # Devin produced the artifact autonomously
+    NEEDS_APPROVAL = "needs_approval"   # produced, but a human must sign off
+    PENDING = "pending"                 # not yet produced
+    FAILED = "failed"                   # could not be produced
+
+
+class Status(str, Enum):
+    """Lifecycle of a job as it flows through the control plane."""
+
+    QUEUED = "queued"
+    DISPATCHED = "dispatched"
+    RUNNING = "running"
+    NEEDS_ATTENTION = "needs_attention"  # blocked, or awaiting human approval
+    PR_OPEN = "pr_open"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
 
     @property
     def is_terminal(self) -> bool:
         return self in {Status.SUCCEEDED, Status.FAILED}
 
 
-# Statuses the poller should keep polling on.
 OPEN_STATUSES = [s.value for s in Status if not s.is_terminal]
 
 
 @dataclass
 class Finding:
-    """A single issue discovered by a scanner (the input to the pipeline)."""
+    """A single issue discovered by a scanner (input to the security workload)."""
 
-    id: str                     # stable id, e.g. "PIP-AUDIT-jinja2-CVE-2024-22195"
-    source: str                 # scanner name
-    severity: str               # critical | high | medium | low
+    id: str
+    source: str
+    severity: str
     title: str
     description: str
-    ecosystem: str = ""         # pip | npm | code
+    ecosystem: str = ""
     package: str = ""
     vulnerable_version: str = ""
     fixed_version: str = ""
@@ -47,18 +74,19 @@ class Finding:
 
 
 @dataclass
-class Remediation:
-    """One tracked unit of work: a finding + its Devin session + its PR."""
+class Job:
+    """One tracked unit of autonomous work: an event + its Devin session + output."""
 
-    finding_id: str
-    source: str
-    severity: str
-    title: str
-    package: str = ""
-    cve: str = ""
-    status: str = Status.QUEUED.value
+    job_id: str                 # stable id (dedupe key)
+    workload: str = Workload.SECURITY.value
+    event_type: str = EventType.SECURITY_FINDING.value
+    severity: str = "medium"
+    title: str = ""
+    reason: str = ""            # WHY this job exists (shown in the UI)
+    source: str = ""
 
-    # GitHub issue
+    # GitHub / target context
+    repo: str = ""
     issue_number: int | None = None
     issue_url: str = ""
 
@@ -70,10 +98,16 @@ class Remediation:
     acus_consumed: float = 0.0
 
     # Outcome
+    status: str = Status.QUEUED.value
     pr_url: str = ""
     tests_passed: bool | None = None
     summary: str = ""
     error: str = ""
+
+    # Control-plane extras
+    policies: list[dict[str, Any]] = field(default_factory=list)  # [{name,status,note}]
+    details: dict[str, Any] = field(default_factory=dict)          # workload-specific
+    eng_minutes_saved: float = 0.0
 
     # Timestamps (unix seconds)
     created_at: float = 0.0

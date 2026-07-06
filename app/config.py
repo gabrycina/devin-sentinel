@@ -37,6 +37,12 @@ class Settings:
     github_webhook_secret: str = os.getenv("GITHUB_WEBHOOK_SECRET", "")
     # Only issues carrying this label are dispatched to Devin.
     trigger_label: str = os.getenv("TRIGGER_LABEL", "devin-fix")
+    # Govern workload: run governance on every opened PR (or only labeled ones).
+    govern_all_prs: bool = _bool("GOVERN_ALL_PRS", True)
+    # Respond workload: the demo service repo that carries a planted regression.
+    incident_repo: str = os.getenv("INCIDENT_REPO", "gabrycina/sentinel-demo-service")
+    # Optional Slack incoming webhook for incident notifications.
+    slack_webhook_url: str = os.getenv("SLACK_WEBHOOK_URL", "")
 
     # --- Runtime ---
     db_path: str = os.getenv("DB_PATH", "data/sentinel.db")

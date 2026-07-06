@@ -43,9 +43,9 @@ def main() -> None:
     print(f"\nTotal: {len(all_findings)} findings")
     for f in all_findings:
         print(f"  [{f.severity}] {f.package}=={f.vulnerable_version}  {f.cve}")
-        orchestrator.ingest(f)
+        orchestrator.ingest_finding(f)
         if do_dispatch:
-            orchestrator.dispatch(f)
+            orchestrator.dispatch_security(f)
 
     if do_dispatch:
         print("\nDispatched all findings to Devin. Watch the dashboard.")

@@ -1,7 +1,9 @@
-"""Server-rendered observability dashboard (no build step, no JS framework).
+"""Server-rendered control-plane dashboard, styled to feel native to Devin.
 
-Auto-refreshes so an engineering leader can leave it on a wall monitor and watch
-the fleet of Devin sessions move findings from 'queued' to 'merged PR'.
+Light theme, left sidebar, generous whitespace, one restrained blue accent,
+monospace for refs. Shows multiple event types flowing into a central
+orchestrator, and for each job: WHY it exists, which policies were satisfied
+automatically vs. still need a human, and estimated engineer-time saved.
 """
 from __future__ import annotations
 
@@ -10,27 +12,42 @@ import time
 from typing import Any
 
 from .config import settings
-from .models import Remediation, Status
+from .models import Job, PolicyStatus, Status, Workload
 
-_STATUS_STYLE = {
-    Status.QUEUED.value: ("#8b93a7", "queued"),
-    Status.DISPATCHED.value: ("#3b82f6", "dispatched"),
-    Status.RUNNING.value: ("#3b82f6", "running"),
-    Status.NEEDS_ATTENTION.value: ("#f59e0b", "needs attention"),
-    Status.PR_OPEN.value: ("#a855f7", "PR open"),
-    Status.SUCCEEDED.value: ("#22c55e", "succeeded"),
-    Status.FAILED.value: ("#ef4444", "failed"),
+# --- Devin-like design tokens ------------------------------------------------
+BLUE = "#2f6feb"
+WORKLOAD = {
+    Workload.SECURITY.value:   ("Prevent", "#2f6feb", "🛡️", "Security & dependency remediation"),
+    Workload.GOVERNANCE.value: ("Govern", "#7c3aed", "📋", "Change-governance artifacts"),
+    Workload.INCIDENT.value:   ("Respond", "#ea580c", "🚨", "Autonomous incident response"),
 }
-_SEV_COLOR = {"critical": "#ef4444", "high": "#f97316", "medium": "#eab308", "low": "#64748b"}
+STATUS = {
+    Status.QUEUED.value: ("#6b7280", "Queued"),
+    Status.DISPATCHED.value: ("#2f6feb", "Dispatched"),
+    Status.RUNNING.value: ("#2f6feb", "Running"),
+    Status.NEEDS_ATTENTION.value: ("#d97706", "Needs approval"),
+    Status.PR_OPEN.value: ("#7c3aed", "PR open"),
+    Status.SUCCEEDED.value: ("#16a34a", "Succeeded"),
+    Status.FAILED.value: ("#dc2626", "Failed"),
+}
+EVENT_LABEL = {
+    "security_finding": "Security finding",
+    "dependency_update": "Dependency update",
+    "failed_ci": "Failed CI",
+    "policy_violation": "Policy violation",
+    "pull_request": "Pull request",
+    "incident_alert": "Incident alert",
+}
+POLICY_MARK = {
+    PolicyStatus.AUTO_SATISFIED.value: ("✓", "#16a34a", "auto"),
+    PolicyStatus.NEEDS_APPROVAL.value: ("⏳", "#d97706", "needs approval"),
+    PolicyStatus.PENDING.value: ("○", "#9ca3af", "pending"),
+    PolicyStatus.FAILED.value: ("✕", "#dc2626", "failed"),
+}
 
 
-def _esc(s: Any) -> str:
+def _e(s: Any) -> str:
     return html.escape(str(s if s is not None else ""))
-
-
-def _badge(status: str) -> str:
-    color, label = _STATUS_STYLE.get(status, ("#8b93a7", status))
-    return f'<span class="badge" style="background:{color}22;color:{color};border:1px solid {color}55">{label}</span>'
 
 
 def _ago(ts: float | None) -> str:
@@ -44,175 +61,280 @@ def _ago(ts: float | None) -> str:
     return f"{int(d/3600)}h ago"
 
 
-def _kpi(label: str, value: str, sub: str = "", accent: str = "#e5e7eb") -> str:
-    sub_html = f'<div class="kpi-sub">{sub}</div>' if sub else ""
-    return f"""<div class="kpi">
-      <div class="kpi-label">{label}</div>
-      <div class="kpi-value" style="color:{accent}">{value}</div>
-      {sub_html}
+def _status_pill(status: str) -> str:
+    color, label = STATUS.get(status, ("#6b7280", status))
+    return (f'<span class="pill" style="color:{color};background:{color}14;'
+            f'border-color:{color}33">{label}</span>')
+
+
+def _md_bold(text: str) -> str:
+    # tiny **bold** renderer for reason strings
+    out, i = "", 0
+    parts = _e(text).split("**")
+    for idx, p in enumerate(parts):
+        out += f"<strong>{p}</strong>" if idx % 2 else p
+    return out
+
+
+def _policies(job: Job) -> str:
+    if not job.policies:
+        return ""
+    chips = ""
+    for p in job.policies:
+        mark, color, _ = POLICY_MARK.get(p.get("status", "pending"), ("○", "#9ca3af", ""))
+        chips += (f'<span class="chip" style="color:{color};border-color:{color}33">'
+                  f'<b style="color:{color}">{mark}</b> {_e(p["name"].replace("_"," "))}</span>')
+    return f'<div class="chips">{chips}</div>'
+
+
+def _links(job: Job) -> str:
+    out = []
+    if job.session_url:
+        out.append(f'<a href="{_e(job.session_url)}" target="_blank">Devin session ↗</a>')
+    if job.pr_url:
+        label = "Rollback PR ↗" if job.workload == "incident" else "PR ↗"
+        out.append(f'<a href="{_e(job.pr_url)}" target="_blank">{label}</a>')
+    rca = job.details.get("rca_issue_url")
+    if rca:
+        out.append(f'<a href="{_e(rca)}" target="_blank">RCA issue ↗</a>')
+    if job.issue_url and job.workload != "incident":
+        lbl = "Governed PR ↗" if job.workload == "governance" else f"Issue #{job.issue_number} ↗"
+        out.append(f'<a href="{_e(job.issue_url)}" target="_blank">{lbl}</a>')
+    return ' <span class="dot">·</span> '.join(out) or '<span class="muted">—</span>'
+
+
+def _job_row(job: Job) -> str:
+    _, wcolor, _, _ = WORKLOAD.get(job.workload, ("", "#6b7280", "", ""))
+    event = EVENT_LABEL.get(job.event_type, job.event_type)
+    saved = f"{job.eng_minutes_saved/60:.1f}h saved" if job.eng_minutes_saved else ""
+    acu = f"{job.acus_consumed:.1f} ACU" if job.acus_consumed else ""
+    meta = " · ".join(x for x in [saved, acu, _ago(job.dispatched_at)] if x)
+    return f"""<div class="job">
+      <div class="job-main">
+        <div class="job-top">
+          <span class="etype" style="color:{wcolor};background:{wcolor}12">{_e(event)}</span>
+          <span class="job-title">{_e(job.title)}</span>
+        </div>
+        <div class="job-why">{_md_bold(job.reason)}</div>
+        {_policies(job)}
+        <div class="job-links">{_links(job)}</div>
+      </div>
+      <div class="job-side">
+        {_status_pill(job.status)}
+        <div class="job-meta">{_e(meta)}</div>
+      </div>
     </div>"""
 
 
-def _row(r: Remediation) -> str:
-    sev_c = _SEV_COLOR.get(r.severity, "#64748b")
-    session = (
-        f'<a href="{_esc(r.session_url)}" target="_blank">session ↗</a>' if r.session_url else "—"
+def _workload_section(wl: str, jobs: list[Job]) -> str:
+    name, color, icon, desc = WORKLOAD.get(wl, (wl, "#6b7280", "•", ""))
+    rows = "".join(_job_row(j) for j in jobs) or (
+        f'<div class="empty">No {name.lower()} jobs yet.</div>'
     )
-    pr = f'<a href="{_esc(r.pr_url)}" target="_blank">PR ↗</a>' if r.pr_url else "—"
-    issue = (
-        f'<a href="{_esc(r.issue_url)}" target="_blank">#{r.issue_number}</a>'
-        if r.issue_number else "—"
-    )
-    tests = "✅" if r.tests_passed else ("❌" if r.tests_passed is False else "—")
-    detail = _esc(r.devin_status_detail or r.summary or "")[:90]
-    return f"""<tr>
-      <td><div class="fid">{_esc(r.finding_id)}</div><div class="ftitle">{_esc(r.title)}</div></td>
-      <td><span class="sev" style="color:{sev_c}">{_esc(r.severity.upper())}</span></td>
-      <td>{_badge(r.status)}<div class="detail">{detail}</div></td>
-      <td>{issue}</td>
-      <td>{session}</td>
-      <td>{pr}</td>
-      <td style="text-align:center">{tests}</td>
-      <td style="text-align:right">{r.acus_consumed:.1f}</td>
-      <td class="muted">{_ago(r.dispatched_at)}</td>
-    </tr>"""
+    return f"""<section class="wl">
+      <div class="wl-head">
+        <span class="wl-badge" style="background:{color}14;color:{color}">{icon} {name}</span>
+        <span class="wl-desc">{_e(desc)}</span>
+        <span class="wl-count">{len(jobs)}</span>
+      </div>
+      {rows}
+    </section>"""
 
 
-def _funnel(m: dict[str, Any]) -> str:
-    stages = [
-        ("Findings", m["total"], "#8b93a7"),
-        ("In progress", m["running"], "#3b82f6"),
-        ("PR open", m["pr_open"], "#a855f7"),
-        ("Succeeded", m["succeeded"], "#22c55e"),
-        ("Failed", m["failed"], "#ef4444"),
-    ]
-    total = max(m["total"], 1)
-    bars = ""
-    for label, val, color in stages:
-        pct = int(val / total * 100)
-        bars += f"""<div class="fn-row">
-          <div class="fn-label">{label}</div>
-          <div class="fn-track"><div class="fn-fill" style="width:{max(pct,2)}%;background:{color}"></div></div>
-          <div class="fn-val">{val}</div>
-        </div>"""
-    return bars
+def _kpi(label: str, value: str, sub: str = "", accent: str = "#1f1f1f") -> str:
+    sub = f'<div class="kpi-sub">{sub}</div>' if sub else ""
+    return (f'<div class="kpi"><div class="kpi-label">{label}</div>'
+            f'<div class="kpi-value" style="color:{accent}">{value}</div>{sub}</div>')
+
+
+def _nav_item(label: str, count: int | None = None, color: str = "", active: bool = False) -> str:
+    badge = f'<span class="nav-count">{count}</span>' if count is not None else ""
+    dot = f'<span class="nav-dot" style="background:{color}"></span>' if color else ""
+    cls = "nav-item active" if active else "nav-item"
+    return f'<div class="{cls}">{dot}<span>{label}</span>{badge}</div>'
+
+
+def _flow() -> str:
+    events = ["Security finding", "Dependency update", "Failed CI", "Policy violation", "Incident alert"]
+    ev = "".join(f'<span class="flow-ev">{e}</span>' for e in events)
+    wls = "".join(
+        f'<span class="flow-wl" style="color:{c};border-color:{c}44;background:{c}0c">{i} {n}</span>'
+        for n, c, i, _ in WORKLOAD.values()
+    )
+    return f"""<div class="flow">
+      <div class="flow-col"><div class="flow-h">Events</div><div class="flow-items">{ev}</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-col"><div class="flow-h">Rules engine</div>
+        <div class="flow-orch">classify · require artifacts · dispatch Devin</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-col"><div class="flow-h">Workloads</div><div class="flow-items">{wls}</div></div>
+    </div>"""
 
 
 def _events(events: list[dict[str, Any]]) -> str:
     if not events:
-        return '<div class="muted">No events yet — trigger a scan.</div>'
+        return '<div class="empty">No activity yet.</div>'
     out = ""
     for e in events:
-        out += f"""<div class="ev">
-          <span class="ev-kind">{_esc(e['kind'])}</span>
-          <span class="ev-msg">{_esc(e['message'])}</span>
-          <span class="ev-ts muted">{_ago(e['ts'])}</span>
-        </div>"""
+        out += (f'<div class="ev"><span class="ev-kind">{_e(e["kind"])}</span>'
+                f'<span class="ev-msg">{_e(e["message"])}</span>'
+                f'<span class="muted ev-ts">{_ago(e["ts"])}</span></div>')
     return out
 
 
-def render_dashboard(
-    m: dict[str, Any], rows: list[Remediation], events: list[dict[str, Any]]
-) -> str:
+def render_dashboard(m: dict[str, Any], jobs: list[Job], events: list[dict[str, Any]]) -> str:
     net = m["net_value_usd"]
-    net_color = "#22c55e" if net >= 0 else "#ef4444"
-    table = "".join(_row(r) for r in rows) or (
-        '<tr><td colspan="9" class="muted" style="padding:28px">'
-        "No remediations yet. POST /api/scan or add the "
-        f"<code>{settings.trigger_label}</code> label to an issue.</td></tr>"
+    by_wl = m["by_workload"]
+    grouped = {w.value: [j for j in jobs if j.workload == w.value] for w in Workload}
+    sections = "".join(
+        _workload_section(w, grouped[w]) for w in [
+            Workload.SECURITY.value, Workload.GOVERNANCE.value, Workload.INCIDENT.value]
     )
     mode = "DRY RUN" if settings.dry_run else "LIVE"
-    mode_color = "#f59e0b" if settings.dry_run else "#22c55e"
+    mode_color = "#d97706" if settings.dry_run else "#16a34a"
 
-    return f"""<!doctype html><html><head>
+    nav_workloads = "".join(
+        _nav_item(WORKLOAD[w][0], by_wl.get(w, {}).get("total", 0), WORKLOAD[w][1])
+        for w in [Workload.SECURITY.value, Workload.GOVERNANCE.value, Workload.INCIDENT.value]
+    )
+
+    return f"""<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="refresh" content="8">
-<title>Devin Sentinel</title>
+<title>Sentinel · Engineering Control Plane</title>
 <style>
-  :root {{ color-scheme: dark; }}
-  * {{ box-sizing: border-box; }}
-  body {{ margin:0; background:#0b0e14; color:#e5e7eb;
-    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }}
-  a {{ color:#60a5fa; text-decoration:none; }} a:hover {{ text-decoration:underline; }}
-  .wrap {{ max-width:1240px; margin:0 auto; padding:28px 22px 60px; }}
-  header {{ display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }}
-  .brand {{ display:flex; align-items:center; gap:12px; }}
-  .logo {{ width:34px; height:34px; border-radius:8px;
-    background:linear-gradient(135deg,#6366f1,#a855f7); display:grid; place-items:center;
-    font-size:18px; }}
-  h1 {{ font-size:19px; margin:0; letter-spacing:.2px; }}
-  .sub {{ color:#8b93a7; font-size:12.5px; }}
-  .pill {{ font-size:11px; font-weight:600; padding:4px 10px; border-radius:999px;
-    background:{mode_color}22; color:{mode_color}; border:1px solid {mode_color}55; }}
-  .grid {{ display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:20px; }}
-  .kpi {{ background:#141925; border:1px solid #1f2635; border-radius:12px; padding:14px 16px; }}
-  .kpi-label {{ font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:#8b93a7; }}
-  .kpi-value {{ font-size:26px; font-weight:700; margin-top:6px; }}
-  .kpi-sub {{ font-size:11.5px; color:#8b93a7; margin-top:2px; }}
-  .cols {{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }}
-  .card {{ background:#141925; border:1px solid #1f2635; border-radius:12px; padding:16px 18px; }}
-  .card h2 {{ font-size:13px; text-transform:uppercase; letter-spacing:.6px; color:#8b93a7;
-    margin:0 0 14px; }}
-  .fn-row {{ display:flex; align-items:center; gap:12px; margin:9px 0; }}
-  .fn-label {{ width:92px; font-size:12.5px; color:#c3c9d6; }}
-  .fn-track {{ flex:1; height:9px; background:#0b0e14; border-radius:6px; overflow:hidden; }}
-  .fn-fill {{ height:100%; border-radius:6px; transition:width .4s; }}
-  .fn-val {{ width:28px; text-align:right; font-variant-numeric:tabular-nums; color:#c3c9d6; }}
-  .ev {{ display:flex; gap:10px; align-items:baseline; padding:5px 0; border-bottom:1px solid #1a2030; font-size:12.5px; }}
-  .ev-kind {{ font-family:ui-monospace,monospace; font-size:11px; color:#a855f7; min-width:96px; }}
-  .ev-msg {{ flex:1; color:#c3c9d6; }}
-  table {{ width:100%; border-collapse:collapse; }}
-  th {{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.5px;
-    color:#8b93a7; padding:10px 12px; border-bottom:1px solid #1f2635; }}
-  td {{ padding:12px; border-bottom:1px solid #161c28; vertical-align:top; }}
-  .fid {{ font-family:ui-monospace,monospace; font-size:11.5px; color:#8b93a7; }}
-  .ftitle {{ font-size:13px; color:#e5e7eb; margin-top:2px; max-width:360px; }}
-  .badge {{ font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; white-space:nowrap; }}
-  .sev {{ font-weight:700; font-size:11.5px; }}
-  .detail {{ font-size:11px; color:#6b7280; margin-top:4px; max-width:220px; }}
-  .muted {{ color:#6b7280; }}
-  .table-card {{ background:#141925; border:1px solid #1f2635; border-radius:12px; overflow:hidden; }}
-  .table-head {{ padding:14px 18px; border-bottom:1px solid #1f2635; display:flex;
-    justify-content:space-between; align-items:center; }}
-  code {{ background:#0b0e14; padding:1px 6px; border-radius:5px; font-size:12px; }}
-  @media (max-width:900px) {{ .grid{{grid-template-columns:repeat(2,1fr)}} .cols{{grid-template-columns:1fr}} }}
-</style></head><body><div class="wrap">
-  <header>
+  * {{ box-sizing:border-box; }}
+  :root {{ color-scheme:light; }}
+  body {{ margin:0; background:#fbfbfa; color:#1f1f1f;
+    font:13.5px/1.55 -apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased; }}
+  a {{ color:{BLUE}; text-decoration:none; }} a:hover {{ text-decoration:underline; }}
+  .muted {{ color:#9a9a9a; }}
+  .layout {{ display:grid; grid-template-columns:236px 1fr; min-height:100vh; }}
+
+  /* sidebar */
+  .side {{ background:#fbfbfa; border-right:1px solid #ededed; padding:16px 12px; }}
+  .brand {{ display:flex; align-items:center; gap:9px; padding:6px 8px 14px; }}
+  .logo {{ width:26px; height:26px; border-radius:7px; background:#1f1f1f; color:#fff;
+    display:grid; place-items:center; font-weight:700; font-size:14px; }}
+  .brand-name {{ font-weight:600; font-size:14px; }}
+  .brand-org {{ font-size:11.5px; color:#9a9a9a; }}
+  .nav-sec {{ font-size:10.5px; text-transform:uppercase; letter-spacing:.7px;
+    color:#a3a3a3; padding:14px 8px 6px; }}
+  .nav-item {{ display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:7px;
+    color:#3d3d3d; font-size:13px; cursor:default; }}
+  .nav-item:hover {{ background:#f0f0ef; }}
+  .nav-item.active {{ background:#eef1f6; color:{BLUE}; font-weight:500; }}
+  .nav-dot {{ width:7px; height:7px; border-radius:50%; }}
+  .nav-count {{ margin-left:auto; font-size:11.5px; color:#9a9a9a; }}
+  .side-foot {{ margin-top:18px; padding:10px 8px; border-top:1px solid #ededed; font-size:11.5px; color:#9a9a9a; }}
+
+  /* main */
+  .main {{ min-width:0; }}
+  .topbar {{ display:flex; align-items:center; gap:10px; padding:14px 26px;
+    border-bottom:1px solid #ededed; background:#fff; }}
+  .crumb {{ font-size:13px; color:#5a5a5a; }}
+  .crumb b {{ color:#1f1f1f; }}
+  .top-right {{ margin-left:auto; display:flex; align-items:center; gap:12px; font-size:12px; color:#9a9a9a; }}
+  .mode {{ font-weight:600; padding:3px 9px; border-radius:999px; font-size:11px;
+    color:{mode_color}; background:{mode_color}14; border:1px solid {mode_color}33; }}
+  .content {{ padding:24px 26px 60px; max-width:1180px; }}
+  h1 {{ font-size:20px; margin:0 0 3px; letter-spacing:-.2px; }}
+  .subtitle {{ color:#8a8a8a; font-size:13px; margin-bottom:20px; }}
+
+  .kpis {{ display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-bottom:18px; }}
+  .kpi {{ background:#fff; border:1px solid #ededed; border-radius:10px; padding:12px 14px; }}
+  .kpi-label {{ font-size:10.5px; text-transform:uppercase; letter-spacing:.5px; color:#a3a3a3; }}
+  .kpi-value {{ font-size:23px; font-weight:650; margin-top:5px; letter-spacing:-.5px; }}
+  .kpi-sub {{ font-size:11px; color:#9a9a9a; margin-top:1px; }}
+
+  .flow {{ display:flex; align-items:stretch; gap:10px; background:#fff; border:1px solid #ededed;
+    border-radius:10px; padding:14px 16px; margin-bottom:22px; }}
+  .flow-col {{ flex:1; }}
+  .flow-arrow {{ display:grid; place-items:center; color:#c9c9c9; font-size:18px; }}
+  .flow-h {{ font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; color:#a3a3a3; margin-bottom:8px; }}
+  .flow-items {{ display:flex; flex-wrap:wrap; gap:5px; }}
+  .flow-ev {{ font-size:11.5px; color:#5a5a5a; background:#f4f4f3; border:1px solid #eaeaea;
+    padding:3px 8px; border-radius:6px; }}
+  .flow-wl {{ font-size:11.5px; padding:3px 8px; border-radius:6px; border:1px solid; }}
+  .flow-orch {{ font-size:12px; color:#5a5a5a; background:#f7f5ff; border:1px dashed #d9ccf5;
+    padding:8px 10px; border-radius:8px; }}
+
+  .wl {{ background:#fff; border:1px solid #ededed; border-radius:10px; margin-bottom:14px; overflow:hidden; }}
+  .wl-head {{ display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid #f0f0f0; }}
+  .wl-badge {{ font-size:12.5px; font-weight:600; padding:3px 10px; border-radius:7px; }}
+  .wl-desc {{ font-size:12px; color:#9a9a9a; }}
+  .wl-count {{ margin-left:auto; font-size:12px; color:#9a9a9a; }}
+  .job {{ display:flex; gap:16px; padding:14px 16px; border-bottom:1px solid #f4f4f3; }}
+  .job:last-child {{ border-bottom:none; }}
+  .job-main {{ flex:1; min-width:0; }}
+  .job-top {{ display:flex; align-items:center; gap:9px; margin-bottom:4px; }}
+  .etype {{ font-size:10.5px; font-weight:600; padding:2px 7px; border-radius:5px; white-space:nowrap; }}
+  .job-title {{ font-size:13.5px; font-weight:550; color:#1f1f1f; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap; }}
+  .job-why {{ font-size:12.5px; color:#6e6e6e; margin-bottom:8px; }}
+  .chips {{ display:flex; flex-wrap:wrap; gap:5px; margin-bottom:9px; }}
+  .chip {{ font-size:11px; padding:2px 8px; border:1px solid; border-radius:999px; background:#fff; }}
+  .job-links {{ font-size:12px; }}
+  .job-links .dot {{ color:#d0d0d0; }}
+  .job-side {{ text-align:right; white-space:nowrap; }}
+  .pill {{ font-size:11px; font-weight:600; padding:3px 10px; border-radius:999px; border:1px solid; }}
+  .job-meta {{ font-size:11px; color:#a3a3a3; margin-top:6px; }}
+  .empty {{ padding:18px 16px; color:#b0b0b0; font-size:12.5px; }}
+
+  .grid2 {{ display:grid; grid-template-columns:2fr 1fr; gap:14px; align-items:start; }}
+  .card {{ background:#fff; border:1px solid #ededed; border-radius:10px; padding:4px 0; }}
+  .card h2 {{ font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:#a3a3a3;
+    margin:0; padding:14px 16px 8px; }}
+  .ev {{ display:flex; gap:9px; align-items:baseline; padding:7px 16px; border-top:1px solid #f4f4f3; font-size:12px; }}
+  .ev-kind {{ font-family:ui-monospace,"SF Mono",monospace; font-size:10.5px; color:#7c3aed; min-width:92px; }}
+  .ev-msg {{ flex:1; color:#5a5a5a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }}
+  .ev-ts {{ font-size:11px; }}
+  @media (max-width:920px) {{ .layout{{grid-template-columns:1fr}} .side{{display:none}}
+    .kpis{{grid-template-columns:repeat(2,1fr)}} .flow{{flex-direction:column}} .grid2{{grid-template-columns:1fr}} }}
+</style></head><body><div class="layout">
+
+  <aside class="side">
     <div class="brand">
-      <div class="logo">🛡️</div>
-      <div>
-        <h1>Devin Sentinel</h1>
-        <div class="sub">Autonomous security &amp; dependency remediation · {_esc(settings.github_repo)}</div>
+      <div class="logo">S</div>
+      <div><div class="brand-name">Sentinel</div><div class="brand-org">{_e(settings.github_repo.split('/')[0])}</div></div>
+    </div>
+    {_nav_item("Overview", active=True)}
+    {_nav_item("Automations")}
+    {_nav_item("Activity")}
+    <div class="nav-sec">Workloads</div>
+    {nav_workloads}
+    <div class="nav-sec">Governance</div>
+    {_nav_item("Policies", m["policies_auto"] + m["policies_need_approval"])}
+    <div class="side-foot">Repo · <code>{_e(settings.github_repo)}</code></div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="crumb"><b>Engineering Control Plane</b> <span class="muted">/ overview</span></div>
+      <div class="top-right">
+        <span>updated {_ago(time.time()-1)} · auto-refresh 8s</span>
+        <span class="mode">● {mode}</span>
       </div>
     </div>
-    <span class="pill">● {mode}</span>
-  </header>
+    <div class="content">
+      <h1>Engineering Control Plane</h1>
+      <div class="subtitle">Events become governed, autonomous engineering work — with a full audit trail.</div>
 
-  <div class="grid">
-    {_kpi("Findings tracked", str(m["total"]))}
-    {_kpi("PRs produced", str(m["prs_produced"]), "autonomous", "#a855f7")}
-    {_kpi("Success rate", f"{m['success_rate']}%", f"{m['succeeded']}/{m['resolved']} resolved", "#22c55e")}
-    {_kpi("In progress", str(m["running"]), "live sessions", "#3b82f6")}
-    {_kpi("Devin spend", f"${m['devin_spend_usd']}", f"{m['total_acus']} ACUs", "#e5e7eb")}
-    {_kpi("Net value", f"${net:,.0f}", f"{m['eng_hours_saved']}h eng saved", net_color)}
-  </div>
+      <div class="kpis">
+        {_kpi("Autonomous jobs", str(m["total"]), f"{m['running']} in progress")}
+        {_kpi("PRs produced", str(m["prs_produced"]), "security + rollback", "#2f6feb")}
+        {_kpi("Policies auto-met", str(m["policies_auto"]), "no human needed", "#16a34a")}
+        {_kpi("Needs approval", str(m["policies_need_approval"] + m["needs_attention"]), "awaiting human", "#d97706")}
+        {_kpi("Devin spend", f"${m['devin_spend_usd']}", f"{m['total_acus']} ACUs")}
+        {_kpi("Net value", f"${net:,.0f}", f"{m['eng_hours_saved']}h eng saved", "#16a34a" if net>=0 else "#dc2626")}
+      </div>
 
-  <div class="cols">
-    <div class="card"><h2>Remediation funnel</h2>{_funnel(m)}</div>
-    <div class="card"><h2>Live activity</h2>{_events(events)}</div>
-  </div>
+      {_flow()}
 
-  <div class="table-card">
-    <div class="table-head">
-      <h2 style="margin:0;font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:#8b93a7">Remediations</h2>
-      <span class="muted" style="font-size:12px">auto-refresh 8s</span>
+      {sections}
+
+      <div class="card" style="margin-top:8px"><h2>Live activity</h2>{_events(events)}</div>
     </div>
-    <table>
-      <thead><tr>
-        <th>Finding</th><th>Sev</th><th>Status</th><th>Issue</th>
-        <th>Devin</th><th>PR</th><th>Tests</th><th>ACUs</th><th>Dispatched</th>
-      </tr></thead>
-      <tbody>{table}</tbody>
-    </table>
   </div>
 </div></body></html>"""
