@@ -1,0 +1,25 @@
+services:
+  sentinel:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DEVIN_API_KEY: ${DEVIN_API_KEY}
+      DEVIN_ORG_ID: ${DEVIN_ORG_ID}
+      GITHUB_REPO: ${GITHUB_REPO:-gabrycina/superset}
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      GITHUB_BASE_BRANCH: ${GITHUB_BASE_BRANCH:-master}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      TRIGGER_LABEL: ${TRIGGER_LABEL:-devin-fix}
+      POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-30}
+      DRY_RUN: ${DRY_RUN:-false}
+      ENG_HOURS_PER_FINDING: ${ENG_HOURS_PER_FINDING:-2.5}
+      ENG_HOURLY_COST: ${ENG_HOURLY_COST:-95}
+      ACU_USD_COST: ${ACU_USD_COST:-2.25}
+      DB_PATH: /data/sentinel.db
+    volumes:
+      - sentinel-data:/data
+    restart: unless-stopped
+
+volumes:
+  sentinel-data:

@@ -1,0 +1,79 @@
+[
+  {
+    "id": "SENTINEL-001-python-multipart",
+    "source": "osv-scan (pip)",
+    "severity": "high",
+    "ecosystem": "pip",
+    "package": "python-multipart",
+    "vulnerable_version": "0.0.29",
+    "fixed_version": "0.0.31",
+    "cve": "CVE-2026-53540",
+    "title": "python-multipart 0.0.29 vulnerable to DoS and parameter smuggling (4 CVEs)",
+    "description": "Superset pins python-multipart==0.0.29 (requirements/base.txt), which is affected by four advisories: CVE-2026-53540 (negative Content-Length buffers the entire request body in memory -> memory-exhaustion DoS), CVE-2026-53539 and CVE-2026-53538 (semicolon separator handling enables querystring parameter smuggling), and CVE-2026-53537 (RFC 2231/5987 Content-Disposition parameter smuggling). All are resolved by upgrading to 0.0.31. This library parses multipart/form-data on Superset's upload endpoints, so this is directly reachable.",
+    "references": [
+      "https://osv.dev/vulnerability/CVE-2026-53540",
+      "https://osv.dev/vulnerability/CVE-2026-53538"
+    ]
+  },
+  {
+    "id": "SENTINEL-002-jaraco-context",
+    "source": "osv-scan (pip)",
+    "severity": "high",
+    "ecosystem": "pip",
+    "package": "jaraco-context",
+    "vulnerable_version": "6.0.1",
+    "fixed_version": "6.1.0",
+    "cve": "CVE-2026-23949",
+    "title": "jaraco.context 6.0.1 path traversal (CVE-2026-23949)",
+    "description": "Superset pins jaraco.context==6.0.1, which contains a path traversal vulnerability in its archive/tarball extraction helper (CVE-2026-23949). An attacker-controlled archive can write files outside the intended extraction directory. Fixed in 6.1.0. This is a minor version bump with no expected breaking changes.",
+    "references": [
+      "https://osv.dev/vulnerability/CVE-2026-23949"
+    ]
+  },
+  {
+    "id": "SENTINEL-003-urijs",
+    "source": "osv-scan (npm)",
+    "severity": "medium",
+    "ecosystem": "npm",
+    "package": "urijs",
+    "vulnerable_version": "1.19.8",
+    "fixed_version": "1.19.11",
+    "cve": "CVE-2022-1243",
+    "title": "urijs 1.19.8 open redirect / protocol confusion (3 CVEs)",
+    "description": "The Superset frontend (superset-frontend) depends on urijs==1.19.8, affected by CVE-2022-1243 and CVE-2022-1233 (incorrect protocol extraction via control characters) and CVE-2022-0868 (open redirect). These enable URL-confusion and open-redirect attacks. All are fixed by upgrading to 1.19.11. Update package.json and the lockfile so the resolved version is consistent.",
+    "references": [
+      "https://osv.dev/vulnerability/CVE-2022-1243",
+      "https://osv.dev/vulnerability/CVE-2022-0868"
+    ]
+  },
+  {
+    "id": "SENTINEL-004-pytest",
+    "source": "osv-scan (pip)",
+    "severity": "medium",
+    "ecosystem": "pip",
+    "package": "pytest",
+    "vulnerable_version": "7.4.4",
+    "fixed_version": "9.0.3",
+    "cve": "CVE-2025-71176",
+    "title": "pytest 7.4.4 insecure tmpdir handling (CVE-2025-71176)",
+    "description": "The Superset development requirements pin pytest==7.4.4, which has insecure temporary-directory handling (CVE-2025-71176) allowing a local attacker to pre-create predictable tmp paths. This is a dev/test-only dependency; upgrading to a fixed 8.x/9.x line may require minor test-collection adjustments, so validate the test suite still collects and runs.",
+    "references": [
+      "https://osv.dev/vulnerability/CVE-2025-71176"
+    ]
+  },
+  {
+    "id": "SENTINEL-005-flask",
+    "source": "osv-scan (pip)",
+    "severity": "low",
+    "ecosystem": "pip",
+    "package": "flask",
+    "vulnerable_version": "2.3.3",
+    "fixed_version": "3.1.3",
+    "cve": "CVE-2026-27205",
+    "title": "Flask 2.3.3 missing Vary: Cookie header can leak cached session data (CVE-2026-27205)",
+    "description": "Superset pins Flask==2.3.3. Under certain access patterns Flask fails to emit a `Vary: Cookie` response header, which can cause a shared/CDN cache to serve one user's session-dependent response to another. Fixed in the 3.1.x line. NOTE: moving from Flask 2.x to 3.x is a major upgrade and may cascade into Flask-AppBuilder / Werkzeug breaking changes across Superset. This is intentionally included as a hard case: remediate only if it is safely achievable, otherwise report it as partial/failed with the blocker.",
+    "references": [
+      "https://osv.dev/vulnerability/CVE-2026-27205"
+    ]
+  }
+]
