@@ -6,8 +6,8 @@ import { timeAgo } from "@/lib/utils";
 const KIND_COLOR: Record<string, string> = {
   ingested: "#64748b",
   dispatched: "#2563eb",
-  status_change: "#7c3aed",
-  webhook: "#4f46e5",
+  status_change: "#0d9488",
+  webhook: "#2563eb",
   incident: "#ea580c",
 };
 

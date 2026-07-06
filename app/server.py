@@ -167,8 +167,36 @@ async def api_events():
 
 @app.get("/api/rules")
 async def api_rules():
-    p = policy.load_policy()
-    return {**p, "repo": settings.github_repo}
+    return {**policy.get_policy(), "repo": settings.github_repo}
+
+
+@app.put("/api/rules")
+async def update_rules(request: Request):
+    """Replace the active governance policy (edited in the Rules-engine UI)."""
+    body = await request.json()
+    try:
+        updated = policy.set_policy(body)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    store.log_event("policy", "", f"rules updated: {len(updated.get('tiers', []))} tiers")
+    return {**updated, "repo": settings.github_repo}
+
+
+@app.post("/api/rules/simulate")
+async def simulate_rules(request: Request):
+    """Given changed file paths, return how the current rules would classify the PR."""
+    body = await request.json()
+    paths = body.get("paths") or []
+    if isinstance(paths, str):
+        paths = [p.strip() for p in paths.replace(",", "\n").splitlines() if p.strip()]
+    result = policy.classify(paths or ["unknown"])
+    return {
+        "tier": result["tier"],
+        "tier_description": result["tier_description"],
+        "matched_paths": result["matched_paths"],
+        "required_artifacts": result["required_artifacts"],
+        "human_approval": [p["name"] for p in result["policies"] if p["needs_human_approval"]],
+    }
 
 
 @app.get("/api/config")

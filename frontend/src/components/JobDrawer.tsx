@@ -35,20 +35,21 @@ export function JobDrawer({ job, onClose }: { job: Job | null; onClose: () => vo
       {job && w && (
         <div className="flex flex-col">
           <div className="border-b border-border px-6 py-5" style={{ background: tint(w.hex, 0.04) }}>
-            <div className="mb-3 flex items-center gap-2">
+            <div className="mb-3 flex items-center gap-3">
               <span
-                className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-semibold"
                 style={{ color: w.hex, background: tint(w.hex, 0.12) }}
               >
                 <w.icon className="size-3.5" /> {w.label}
               </span>
-              <span className="rounded-md border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
-                {EVENT_LABELS[job.event_type] ?? job.event_type}
-              </span>
               <StatusBadge status={job.status} />
             </div>
             <h2 className="pr-8 text-[16px] font-semibold leading-snug">{job.title}</h2>
-            <div className="mt-1.5 font-mono text-[11px] text-muted-foreground">{job.job_id}</div>
+            <div className="mt-1.5 text-[11.5px] text-muted-foreground">
+              {EVENT_LABELS[job.event_type] ?? job.event_type}
+              <span className="mx-1.5 text-border">·</span>
+              <span className="font-mono">{job.job_id}</span>
+            </div>
           </div>
 
           <div className="flex flex-col gap-5 px-6 py-5">

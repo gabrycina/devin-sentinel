@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "@/components/Sidebar";
 import { Topbar } from "@/components/Topbar";
 import { Overview } from "@/pages/Overview";
@@ -7,16 +7,21 @@ import { Rules } from "@/pages/Rules";
 import { Activity } from "@/pages/Activity";
 
 function Layout() {
+  const { pathname } = useLocation();
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar />
-        <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-[1120px] px-8 py-7">
-            <Outlet />
-          </div>
-        </main>
+    <div className="app-frame">
+      <div className="app-window">
+        <aside className="pane pane-sidebar">
+          <Sidebar />
+        </aside>
+        <section className="pane pane-content">
+          <Topbar />
+          <main className="flex-1 overflow-y-auto">
+            <div key={pathname} className="route-anim mx-auto max-w-[1120px] px-8 py-7">
+              <Outlet />
+            </div>
+          </main>
+        </section>
       </div>
     </div>
   );

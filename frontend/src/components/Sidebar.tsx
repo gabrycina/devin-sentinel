@@ -49,7 +49,7 @@ export function Sidebar() {
   const { data: cfg } = usePoll<Config>("/api/config", 30000);
 
   return (
-    <aside className="flex h-full w-[232px] shrink-0 flex-col border-r border-border bg-subtle/60 px-3 py-4">
+    <div className="flex h-full flex-col px-3 py-4">
       <div className="mb-5 flex items-center gap-2.5 px-2">
         <div className="grid size-7 place-items-center rounded-lg bg-foreground text-[13px] font-bold text-background">
           S
@@ -85,6 +85,6 @@ export function Sidebar() {
         <GitBranch className="size-3.5" />
         <span className="truncate font-mono">{cfg?.repo ?? "…"}</span>
       </div>
-    </aside>
+    </div>
   );
 }
