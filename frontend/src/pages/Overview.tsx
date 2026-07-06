@@ -5,6 +5,7 @@ import { JobTable } from "@/components/JobTable";
 import { JobDrawer } from "@/components/JobDrawer";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { tint, ACCENT, WARN } from "@/lib/theme";
 import { usePoll, type Metrics, type Job } from "@/lib/api";
 
 const isDelivered = (j: Job) =>
@@ -26,11 +27,16 @@ function avgMinutes(jobs: Job[], from: (j: Job) => number | null, to: (j: Job) =
   return durations.reduce((s, n) => s + n, 0) / durations.length;
 }
 
-function SecondaryKpi({ value, label }: { value: string; label: string }) {
+function Kpi({ value, label, accent }: { value: string; label: string; accent?: string }) {
   return (
-    <div className="border-l border-border pl-5">
-      <div className="text-[20px] font-semibold leading-none tabular-nums tracking-tight">{value}</div>
-      <div className="mt-1 text-[11.5px] text-muted-foreground">{label}</div>
+    <div className="rounded-lg border border-border bg-card px-4 py-3.5 shadow-xs">
+      <div
+        className="text-[21px] font-semibold leading-none tabular-nums tracking-tight"
+        style={accent ? { color: accent } : undefined}
+      >
+        {value}
+      </div>
+      <div className="section-eyebrow mt-2 text-[10.5px]">{label}</div>
     </div>
   );
 }
@@ -66,40 +72,57 @@ export function Overview() {
   const waitingOnApproval = duration(avgMinutes(waitingJobs, (j) => j.dispatched_at ?? j.created_at, () => now));
   const rollbackTime = duration(avgMinutes(incidents.filter(isDelivered), (j) => j.created_at, (j) => j.completed_at));
 
+  const healthy = needsAttention === 0;
+  const heroColor = healthy ? ACCENT : WARN;
+
   return (
     <div className="space-y-6">
       <header className="animate-fade-up">
-        <h1 className="text-[22px] font-semibold tracking-tight">Engineering control plane</h1>
-        <p className="mt-1 text-[13.5px] font-medium" style={{ color: needsAttention > 0 ? "#d97706" : "#059669" }}>
-          {needsAttention > 0 ? `${needsAttention} item${needsAttention > 1 ? "s" : ""} need your review` : "All systems operational"}
+        <h1 className="text-[24px] font-semibold tracking-tight">Engineering control plane</h1>
+        <p className="mt-1 text-[13px] text-muted-foreground">
+          Autonomous security, governance &amp; incident response — one control plane.
         </p>
-
-        <div className="mt-5 flex flex-wrap items-end gap-x-8 gap-y-4">
-          <div>
-            <div className="text-[42px] font-semibold leading-none tabular-nums tracking-tight">{Math.round(m.success_rate)}%</div>
-            <div className="mt-1.5 text-[12.5px] text-muted-foreground">Autonomous success rate</div>
-          </div>
-          <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
-            <SecondaryKpi value={String(criticalClosed)} label="Critical vulns closed" />
-            <SecondaryKpi value={String(m.prs_produced)} label="PRs generated" />
-            <SecondaryKpi value={meanRemediation} label="Mean remediation time" />
-            <SecondaryKpi value={`${policyCompliance}%`} label="Policy compliance" />
-            <SecondaryKpi value={String(waitingJobs.length)} label="Human interventions" />
-            <SecondaryKpi value={waitingOnApproval} label="Time waiting on approval" />
-            <SecondaryKpi value={rollbackTime} label="Deployment rollback time" />
-          </div>
-        </div>
       </header>
 
-      <section className="grid animate-fade-up grid-cols-1 gap-4 lg:grid-cols-2" style={{ animationDelay: "60ms" }}>
+      <section className="grid animate-fade-up grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4" style={{ animationDelay: "40ms" }}>
+        <div
+          className="col-span-2 flex flex-col justify-between rounded-xl border p-5 shadow-sm"
+          style={{ borderColor: tint(heroColor, 0.35), background: `linear-gradient(150deg, ${tint(heroColor, 0.1)}, ${tint(heroColor, 0.03)})` }}
+        >
+          <div className="flex items-center gap-2">
+            <span className="size-2 rounded-full" style={{ background: heroColor }} />
+            <span className="text-[12.5px] font-semibold" style={{ color: heroColor }}>
+              {healthy ? "All systems operational" : `${needsAttention} item${needsAttention > 1 ? "s" : ""} need${needsAttention === 1 ? "s" : ""} your review`}
+            </span>
+          </div>
+          <div className="mt-4">
+            <div className="text-[46px] font-semibold leading-none tabular-nums tracking-tight" style={{ color: heroColor }}>
+              {Math.round(m.success_rate)}%
+            </div>
+            <div className="mt-2 text-[12.5px] text-muted-foreground">
+              Autonomous success rate across {jobs.length} job{jobs.length === 1 ? "" : "s"}
+            </div>
+          </div>
+        </div>
+
+        <Kpi value={String(criticalClosed)} label="Critical vulns closed" />
+        <Kpi value={String(m.prs_produced)} label="PRs generated" accent={m.prs_produced > 0 ? ACCENT : undefined} />
+        <Kpi value={meanRemediation} label="Mean remediation" />
+        <Kpi value={`${policyCompliance}%`} label="Policy compliance" />
+        <Kpi value={String(waitingJobs.length)} label="Human interventions" accent={waitingJobs.length > 0 ? WARN : undefined} />
+        <Kpi value={waitingOnApproval} label="Waiting on approval" accent={waitingJobs.length > 0 ? WARN : undefined} />
+        <Kpi value={rollbackTime} label="Rollback time" />
+      </section>
+
+      <section className="grid animate-fade-up grid-cols-1 gap-4 lg:grid-cols-2" style={{ animationDelay: "80ms" }}>
         <CurrentOperations jobs={jobs} onSelect={setSelected} />
         <DecisionFeed jobs={jobs} onSelect={setSelected} />
       </section>
 
-      <Card className="animate-fade-up overflow-hidden p-0" style={{ animationDelay: "100ms" }}>
-        <div className="flex items-center justify-between border-b border-border px-5 py-3">
-          <span className="text-[13px] font-semibold">Engineering work queue</span>
-          <span className="text-[12px] text-muted-foreground">{jobs.length} total</span>
+      <Card className="animate-fade-up overflow-hidden p-0" style={{ animationDelay: "120ms" }}>
+        <div className="flex items-center justify-between border-b border-border bg-subtle px-5 py-3">
+          <span className="section-eyebrow">Engineering work queue</span>
+          <span className="text-[11px] font-medium tabular-nums text-muted-foreground">{jobs.length} total</span>
         </div>
         <JobTable jobs={queue.slice(0, 12)} onSelect={setSelected} />
       </Card>

@@ -2,13 +2,14 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePoll, type EventLog } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
+import { ACCENT, WARN, INFO } from "@/lib/theme";
 
 const KIND_COLOR: Record<string, string> = {
-  ingested: "#64748b",
-  dispatched: "#2563eb",
-  status_change: "#0d9488",
-  webhook: "#2563eb",
-  incident: "#ea580c",
+  ingested: "#808781",
+  dispatched: INFO,
+  status_change: ACCENT,
+  webhook: INFO,
+  incident: WARN,
 };
 
 export function Activity() {

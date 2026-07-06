@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { UserCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { WORKLOADS, WORKLOAD_ORDER, tint, type WorkloadKey } from "@/lib/theme";
+import { WORKLOADS, WORKLOAD_ORDER, tint, ACCENT, WARN, type WorkloadKey } from "@/lib/theme";
 import { timeAgo } from "@/lib/utils";
 import type { Job } from "@/lib/api";
 
@@ -37,30 +37,35 @@ function OperationCard({ workloadKey, job, onSelect }: { workloadKey: WorkloadKe
   const w = WORKLOADS[workloadKey];
   const s = job ? stage(job) : null;
 
+  const accent = s ? (s.waiting ? WARN : ACCENT) : null;
   return (
     <button
       onClick={() => (job ? onSelect(job) : nav(`/w/${workloadKey}`))}
-      className="flex w-full flex-col gap-2 rounded-lg border border-border bg-card px-3.5 py-3 text-left transition-all hover:shadow-md"
+      className="hover-lift flex w-full flex-col gap-2 rounded-lg border px-3.5 py-3 text-left"
+      style={{
+        borderColor: accent ? tint(accent, 0.35) : "hsl(var(--border))",
+        background: accent ? `linear-gradient(135deg, ${tint(accent, 0.1)}, transparent 72%)` : "hsl(var(--card))",
+      }}
     >
       <div className="flex items-center gap-2">
-        <div className="grid size-6 shrink-0 place-items-center rounded-md" style={{ background: tint(w.hex, 0.12), color: w.hex }}>
+        <div className="grid size-6 shrink-0 place-items-center rounded-md" style={{ background: tint(w.hex, 0.14), color: w.hex }}>
           <w.icon className="size-3.5" />
         </div>
         <span className="text-[12px] font-semibold" style={{ color: w.hex }}>{w.label}</span>
-        {job && <span className="ml-auto text-[10.5px] text-muted-foreground">{timeAgo(job.dispatched_at)}</span>}
+        {job && <span className="ml-auto text-[10.5px] tabular-nums text-muted-foreground">{timeAgo(job.dispatched_at)}</span>}
       </div>
 
       {s ? (
         <>
           <div className="flex items-center gap-1.5">
-            {s.waiting && <UserCheck className="size-3.5 shrink-0 text-amber-600" />}
-            <span className={"truncate text-[13px] font-medium " + (s.waiting ? "text-amber-600" : "text-foreground")}>
+            {s.waiting && <UserCheck className="size-3.5 shrink-0" style={{ color: WARN }} />}
+            <span className="truncate text-[13px] font-medium" style={s.waiting ? { color: WARN } : undefined}>
               {s.title}
             </span>
           </div>
           {s.sub && <div className="truncate text-[11px] text-muted-foreground">{s.sub}</div>}
           <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
-            <div className="h-full rounded-full transition-all" style={{ width: `${s.pct}%`, background: s.waiting ? "#d97706" : w.hex }} />
+            <div className="h-full rounded-full transition-all" style={{ width: `${s.pct}%`, background: accent ?? ACCENT }} />
           </div>
         </>
       ) : (
@@ -73,7 +78,10 @@ function OperationCard({ workloadKey, job, onSelect }: { workloadKey: WorkloadKe
 export function CurrentOperations({ jobs, onSelect }: { jobs: Job[]; onSelect: (j: Job) => void }) {
   return (
     <Card className="p-4">
-      <div className="mb-3 text-[13px] font-semibold">Current operations</div>
+      <div className="mb-3 flex items-baseline justify-between">
+        <span className="section-eyebrow">Current operations</span>
+        <span className="text-[11px] text-muted-foreground">live</span>
+      </div>
       <div className="flex flex-col gap-2">
         {WORKLOAD_ORDER.map((k) => (
           <OperationCard key={k} workloadKey={k} job={mostActive(jobs, k)} onSelect={onSelect} />

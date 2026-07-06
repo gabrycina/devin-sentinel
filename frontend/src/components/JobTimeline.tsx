@@ -1,5 +1,5 @@
 import { Check, ExternalLink, X } from "lucide-react";
-import { WORKLOADS, tint, type WorkloadKey } from "@/lib/theme";
+import { ACCENT } from "@/lib/theme";
 import { timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { Job } from "@/lib/api";
@@ -69,7 +69,6 @@ function buildSteps(job: Job): Step[] {
 }
 
 export function JobTimeline({ job }: { job: Job }) {
-  const w = WORKLOADS[job.workload as WorkloadKey];
   const steps = buildSteps(job);
 
   return (
@@ -82,15 +81,15 @@ export function JobTimeline({ job }: { job: Job }) {
               className={cn(
                 "relative z-10 grid size-6 shrink-0 place-items-center rounded-full border",
                 s.state === "done" && "border-transparent",
-                s.state === "current" && "border-amber-500/50 bg-amber-500/10",
+                s.state === "current" && "border-[#cbb173]/50 bg-[#cbb173]/10",
                 s.state === "pending" && "border-border bg-card",
-                s.state === "failed" && "border-rose-500/50 bg-rose-500/10"
+                s.state === "failed" && "border-[#d68f8f]/50 bg-[#d68f8f]/10"
               )}
-              style={s.state === "done" ? { background: w.hex } : undefined}
+              style={s.state === "done" ? { background: ACCENT } : undefined}
             >
-              {s.state === "done" && <Check className="size-3.5 text-white" />}
-              {s.state === "current" && <span className="size-2 animate-pulse-dot rounded-full bg-amber-500" />}
-              {s.state === "failed" && <X className="size-3.5 text-rose-600" />}
+              {s.state === "done" && <Check className="size-3.5 text-[#12140f]" />}
+              {s.state === "current" && <span className="size-2 animate-pulse-dot rounded-full bg-[#cbb173]" />}
+              {s.state === "failed" && <X className="size-3.5 text-[#d68f8f]" />}
               {s.state === "pending" && <span className="size-1.5 rounded-full bg-border" />}
             </div>
             <div className="min-w-0 flex-1 pb-4 pt-0.5 last:pb-0">
@@ -105,7 +104,7 @@ export function JobTimeline({ job }: { job: Job }) {
               </div>
               {s.sub && <div className="mt-0.5 text-[12px] leading-snug text-muted-foreground">{s.sub}</div>}
               {s.state === "current" && (
-                <div className="mt-1 inline-flex items-center rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">
+                <div className="mt-1 inline-flex items-center rounded-full bg-[#cbb173]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#cbb173]">
                   in progress
                 </div>
               )}

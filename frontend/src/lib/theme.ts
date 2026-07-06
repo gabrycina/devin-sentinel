@@ -2,6 +2,15 @@ import { Shield, ScrollText, Siren, type LucideIcon } from "lucide-react";
 
 export type WorkloadKey = "security" | "governance" | "incident";
 
+/* Cohesive, low-saturation palette. One sage accent for "good/active",
+   restrained gold for "attention", muted rose for "failure"; everything
+   else is neutral so the UI stays near-monochrome. */
+export const ACCENT = "#a9c39a"; // sage — positive / active / primary
+export const WARN = "#cbb173"; // muted gold — needs approval / in-progress attention
+export const DANGER = "#d68f8f"; // muted rose — failure / critical
+export const INFO = "#8f98a6"; // cool slate — dispatched / running
+export const NEUTRAL = "#a6ada7"; // neutral — workloads & default chips
+
 export const WORKLOADS: Record<
   WorkloadKey,
   { key: WorkloadKey; label: string; tagline: string; hex: string; icon: LucideIcon; verb: string }
@@ -10,7 +19,7 @@ export const WORKLOADS: Record<
     key: "security",
     label: "Prevent",
     tagline: "Security & dependency remediation",
-    hex: "#2563eb",
+    hex: NEUTRAL,
     icon: Shield,
     verb: "remediated",
   },
@@ -18,7 +27,7 @@ export const WORKLOADS: Record<
     key: "governance",
     label: "Govern",
     tagline: "Change-governance artifacts",
-    hex: "#0d9488",
+    hex: NEUTRAL,
     icon: ScrollText,
     verb: "governed",
   },
@@ -26,7 +35,7 @@ export const WORKLOADS: Record<
     key: "incident",
     label: "Respond",
     tagline: "Autonomous incident response",
-    hex: "#ea580c",
+    hex: NEUTRAL,
     icon: Siren,
     verb: "mitigated",
   },
@@ -35,13 +44,13 @@ export const WORKLOADS: Record<
 export const WORKLOAD_ORDER: WorkloadKey[] = ["security", "governance", "incident"];
 
 export const STATUS: Record<string, { label: string; hex: string }> = {
-  queued: { label: "Queued", hex: "#64748b" },
-  dispatched: { label: "Dispatched", hex: "#2563eb" },
-  running: { label: "Running", hex: "#2563eb" },
-  needs_attention: { label: "Needs approval", hex: "#d97706" },
-  pr_open: { label: "PR open", hex: "#0d9488" },
-  succeeded: { label: "Succeeded", hex: "#059669" },
-  failed: { label: "Failed", hex: "#e11d48" },
+  queued: { label: "Queued", hex: "#808781" },
+  dispatched: { label: "Dispatched", hex: INFO },
+  running: { label: "Running", hex: INFO },
+  needs_attention: { label: "Needs approval", hex: WARN },
+  pr_open: { label: "PR open", hex: ACCENT },
+  succeeded: { label: "Succeeded", hex: ACCENT },
+  failed: { label: "Failed", hex: DANGER },
 };
 
 export const EVENT_LABELS: Record<string, string> = {
@@ -54,17 +63,17 @@ export const EVENT_LABELS: Record<string, string> = {
 };
 
 export const POLICY: Record<string, { label: string; hex: string; glyph: string }> = {
-  auto_satisfied: { label: "Auto-satisfied", hex: "#059669", glyph: "✓" },
-  needs_approval: { label: "Needs approval", hex: "#d97706", glyph: "⏳" },
-  pending: { label: "Pending", hex: "#94a3b8", glyph: "○" },
-  failed: { label: "Failed", hex: "#e11d48", glyph: "✕" },
+  auto_satisfied: { label: "Auto-satisfied", hex: ACCENT, glyph: "✓" },
+  needs_approval: { label: "Needs approval", hex: WARN, glyph: "⏳" },
+  pending: { label: "Pending", hex: "#808781", glyph: "○" },
+  failed: { label: "Failed", hex: DANGER, glyph: "✕" },
 };
 
 export const SEVERITY: Record<string, string> = {
-  critical: "#e11d48",
-  high: "#ea580c",
-  medium: "#d97706",
-  low: "#64748b",
+  critical: DANGER,
+  high: WARN,
+  medium: NEUTRAL,
+  low: "#6f756f",
 };
 
 /** tint a hex color to a translucent background */

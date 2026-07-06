@@ -1,5 +1,5 @@
 import { StatusIcon } from "@/components/StatusIcon";
-import { WORKLOADS, tint, type WorkloadKey } from "@/lib/theme";
+import { WORKLOADS, tint, WARN, type WorkloadKey } from "@/lib/theme";
 import { timeAgo } from "@/lib/utils";
 import type { Job } from "@/lib/api";
 
@@ -82,8 +82,9 @@ function DecisionCard({ job, onSelect }: { job: Job; onSelect: (j: Job) => void 
             <span className="mr-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">{s.label}</span>
             <span
               className={
-                s.flag === "approval" ? "font-medium text-amber-600" : s.flag === "outcome" ? "font-medium text-foreground" : "text-foreground/80"
+                s.flag === "approval" ? "font-medium" : s.flag === "outcome" ? "font-medium text-foreground" : "text-foreground/80"
               }
+              style={s.flag === "approval" ? { color: WARN } : undefined}
             >
               {s.value}
             </span>
@@ -98,8 +99,8 @@ export function DecisionFeed({ jobs, onSelect }: { jobs: Job[]; onSelect: (j: Jo
   const recent = [...jobs].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0)).slice(0, 3);
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="mb-1 text-[13px] font-semibold">Autonomous decisions</div>
+    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+      <div className="mb-0.5 section-eyebrow">Autonomous decisions</div>
       <p className="mb-2 text-[11.5px] text-muted-foreground">How the policy engine and Devin reasoned through each job.</p>
       {recent.length === 0 ? (
         <div className="py-8 text-center text-[13px] text-muted-foreground">No decisions yet.</div>

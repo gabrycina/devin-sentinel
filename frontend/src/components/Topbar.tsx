@@ -1,6 +1,6 @@
 import { useLocation } from "react-router-dom";
 import { usePoll } from "@/lib/api";
-import { WORKLOADS, type WorkloadKey } from "@/lib/theme";
+import { WORKLOADS, ACCENT, WARN, type WorkloadKey } from "@/lib/theme";
 
 type Config = { mode: string; repo: string };
 
@@ -16,7 +16,7 @@ export function Topbar() {
   const { pathname } = useLocation();
   const { data: cfg } = usePoll<Config>("/api/config", 30000);
   const live = cfg?.mode !== "DRY RUN";
-  const dot = live ? "#16a34a" : "#d97706";
+  const dot = live ? ACCENT : WARN;
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-6">
