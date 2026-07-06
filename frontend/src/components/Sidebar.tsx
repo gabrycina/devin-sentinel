@@ -62,12 +62,12 @@ export function Sidebar() {
 
       <nav className="flex flex-col gap-0.5">
         <Item to="/" icon={LayoutGrid} label="Overview" end />
-        <Item to="/rules" icon={SlidersHorizontal} label="Rules engine" count={m ? m.policies_auto + m.policies_need_approval : 0} />
+        <Item to="/rules" icon={SlidersHorizontal} label="Policies" count={m ? m.policies_auto + m.policies_need_approval : 0} />
         <Item to="/activity" icon={Activity} label="Activity" />
       </nav>
 
       <div className="mb-1.5 mt-5 px-2.5 text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground/70">
-        Workloads
+        Operations
       </div>
       <nav className="flex flex-col gap-0.5">
         {WORKLOAD_ORDER.map((k) => (

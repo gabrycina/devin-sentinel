@@ -1,26 +1,11 @@
 import type { ReactNode } from "react";
-import { ExternalLink, GitPullRequest, Bot, CircleAlert, FileText } from "lucide-react";
 import { Sheet } from "@/components/ui/sheet";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PolicyList } from "@/components/PolicyList";
+import { JobTimeline } from "@/components/JobTimeline";
 import { WORKLOADS, EVENT_LABELS, SEVERITY, tint, type WorkloadKey } from "@/lib/theme";
 import { timeAgo } from "@/lib/utils";
 import type { Job } from "@/lib/api";
-
-function LinkRow({ href, icon: Icon, label }: { href: string; icon: any; label: string }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className="flex items-center gap-2.5 rounded-md border border-border bg-card px-3 py-2 text-[13px] transition-colors hover:bg-muted"
-    >
-      <Icon className="size-4 text-muted-foreground" />
-      <span className="flex-1 font-medium">{label}</span>
-      <ExternalLink className="size-3.5 text-muted-foreground" />
-    </a>
-  );
-}
 
 function renderMdBold(text: string) {
   return text.split("**").map((p, i) => (i % 2 ? <strong key={i}>{p}</strong> : <span key={i}>{p}</span>));
@@ -57,6 +42,10 @@ export function JobDrawer({ job, onClose }: { job: Job | null; onClose: () => vo
               <p className="text-[13px] leading-relaxed text-foreground/80">{renderMdBold(job.reason)}</p>
             </Section>
 
+            <Section label="Story">
+              <JobTimeline job={job} />
+            </Section>
+
             {job.summary && (
               <Section label="Devin's summary">
                 <p className="text-[13px] leading-relaxed text-foreground/80">{job.summary}</p>
@@ -68,39 +57,6 @@ export function JobDrawer({ job, onClose }: { job: Job | null; onClose: () => vo
                 <PolicyList policies={job.policies} />
               </Section>
             )}
-
-            {(job.details?.suspect_commit || job.details?.root_cause) && (
-              <Section label="Root cause analysis">
-                <div className="rounded-lg border border-border bg-muted/40 p-3 text-[13px]">
-                  {job.details.suspect_commit && (
-                    <div className="mb-1">
-                      <span className="text-muted-foreground">Suspect commit: </span>
-                      <span className="font-mono">{String(job.details.suspect_commit).slice(0, 12)}</span>
-                    </div>
-                  )}
-                  {job.details.root_cause && <div className="text-foreground/80">{job.details.root_cause}</div>}
-                </div>
-              </Section>
-            )}
-
-            <Section label="Outputs">
-              <div className="flex flex-col gap-2">
-                {job.session_url && <LinkRow href={job.session_url} icon={Bot} label="Devin session" />}
-                {job.pr_url && (
-                  <LinkRow href={job.pr_url} icon={GitPullRequest} label={job.workload === "incident" ? "Rollback pull request" : "Pull request"} />
-                )}
-                {job.details?.rca_issue_url && (
-                  <LinkRow href={String(job.details.rca_issue_url)} icon={CircleAlert} label="RCA incident issue" />
-                )}
-                {job.issue_url && (
-                  <LinkRow
-                    href={job.issue_url}
-                    icon={FileText}
-                    label={job.workload === "governance" ? "Governed pull request" : `Issue #${job.issue_number}`}
-                  />
-                )}
-              </div>
-            </Section>
 
             <div className="grid grid-cols-3 gap-3 rounded-lg border border-border bg-subtle/60 p-3.5">
               <Metric label="Severity" value={job.severity} color={SEVERITY[job.severity]} />

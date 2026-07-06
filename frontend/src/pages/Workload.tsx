@@ -73,7 +73,7 @@ export function Workload() {
         {!jobs ? (
           <div className="space-y-2 p-4">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-12" />)}</div>
         ) : (
-          <JobTable jobs={filtered} onSelect={setSelected} />
+          <JobTable jobs={filtered} onSelect={setSelected} showWorkload={false} />
         )}
       </Card>
 
