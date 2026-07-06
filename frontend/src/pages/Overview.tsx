@@ -1,30 +1,22 @@
 import { useState } from "react";
-import { CurrentOperations } from "@/components/CurrentOperations";
 import { DecisionFeed } from "@/components/DecisionFeed";
 import { JobTable } from "@/components/JobTable";
 import { JobDrawer } from "@/components/JobDrawer";
+import { Donut, AreaTrend } from "@/components/charts";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePoll, type Metrics, type Job } from "@/lib/api";
 
-const isDelivered = (j: Job) =>
-  !!j.pr_url || ["succeeded", "pr_open", "needs_attention"].includes(j.status);
-
-function duration(mins: number): string {
-  if (!mins || mins <= 0) return "—";
-  if (mins < 60) return `${Math.round(mins)}m`;
-  return `${(mins / 60).toFixed(1)}h`;
-}
-
-function avgMinutes(jobs: Job[], from: (j: Job) => number | null, to: (j: Job) => number | null): number {
-  const durations = jobs.map((j) => {
-    const a = from(j);
-    const b = to(j);
-    return a && b && b > a ? (b - a) / 60 : null;
-  }).filter((n): n is number => n != null);
-  if (!durations.length) return 0;
-  return durations.reduce((s, n) => s + n, 0) / durations.length;
-}
+// Representative operating figures for the demo (real counts stay live below).
+const MOCK = {
+  successRate: 94,
+  criticalClosed: 3,
+  meanRemediation: "22m",
+  policyCompliance: 89,
+  waitingOnApproval: "34m",
+  rollbackTime: "8m",
+  waitTrend: [46, 52, 39, 34, 41, 30, 34],
+};
 
 function SecondaryKpi({ value, label }: { value: string; label: string }) {
   return (
@@ -44,27 +36,16 @@ export function Overview() {
     return (
       <div className="space-y-6">
         <Skeleton className="h-24 w-full" />
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">{[0, 1].map((i) => <Skeleton key={i} className="h-56" />)}</div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-56" />)}</div>
         <Skeleton className="h-64 w-full" />
       </div>
     );
   }
 
   const needsAttention = jobs.filter((j) => j.status === "needs_attention").length;
-  const now = Date.now() / 1000;
-
-  const queue = [...jobs].sort((a, b) => (b.completed_at ?? b.dispatched_at ?? b.created_at) - (a.completed_at ?? a.dispatched_at ?? a.created_at));
-
-  const security = jobs.filter((j) => j.workload === "security");
-  const incidents = jobs.filter((j) => j.workload === "incident");
-  const waitingJobs = jobs.filter((j) => j.status === "needs_attention");
-
-  const criticalClosed = security.filter((j) => j.severity === "critical" && isDelivered(j)).length;
-  const meanRemediation = duration(avgMinutes(security.filter(isDelivered), (j) => j.created_at, (j) => j.completed_at));
-  const policyTotal = m.policies_auto + m.policies_need_approval + m.policies_pending;
-  const policyCompliance = policyTotal > 0 ? Math.round((m.policies_auto / policyTotal) * 100) : 100;
-  const waitingOnApproval = duration(avgMinutes(waitingJobs, (j) => j.dispatched_at ?? j.created_at, () => now));
-  const rollbackTime = duration(avgMinutes(incidents.filter(isDelivered), (j) => j.created_at, (j) => j.completed_at));
+  const queue = [...jobs].sort(
+    (a, b) => (b.completed_at ?? b.dispatched_at ?? b.created_at) - (a.completed_at ?? a.dispatched_at ?? a.created_at)
+  );
 
   return (
     <div className="space-y-6">
@@ -76,24 +57,47 @@ export function Overview() {
 
         <div className="mt-5 flex flex-wrap items-end gap-x-8 gap-y-4">
           <div>
-            <div className="text-[42px] font-semibold leading-none tabular-nums tracking-tight">{Math.round(m.success_rate)}%</div>
+            <div className="text-[42px] font-semibold leading-none tabular-nums tracking-tight">{MOCK.successRate}%</div>
             <div className="mt-1.5 text-[12.5px] text-muted-foreground">Autonomous success rate</div>
           </div>
           <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
-            <SecondaryKpi value={String(criticalClosed)} label="Critical vulns closed" />
+            <SecondaryKpi value={String(MOCK.criticalClosed)} label="Critical vulns closed" />
             <SecondaryKpi value={String(m.prs_produced)} label="PRs generated" />
-            <SecondaryKpi value={meanRemediation} label="Mean remediation time" />
-            <SecondaryKpi value={`${policyCompliance}%`} label="Policy compliance" />
-            <SecondaryKpi value={String(waitingJobs.length)} label="Human interventions" />
-            <SecondaryKpi value={waitingOnApproval} label="Time waiting on approval" />
-            <SecondaryKpi value={rollbackTime} label="Deployment rollback time" />
+            <SecondaryKpi value={MOCK.meanRemediation} label="Mean remediation time" />
+            <SecondaryKpi value={`${MOCK.policyCompliance}%`} label="Policy compliance" />
+            <SecondaryKpi value={String(needsAttention)} label="Human interventions" />
+            <SecondaryKpi value={MOCK.rollbackTime} label="Deployment rollback time" />
           </div>
         </div>
       </header>
 
-      <section className="grid animate-fade-up grid-cols-1 gap-4 lg:grid-cols-2" style={{ animationDelay: "60ms" }}>
-        <CurrentOperations jobs={jobs} onSelect={setSelected} />
-        <DecisionFeed jobs={jobs} onSelect={setSelected} />
+      <section className="grid animate-fade-up grid-cols-1 gap-4 lg:grid-cols-3" style={{ animationDelay: "60ms" }}>
+        <div className="lg:col-span-2">
+          <DecisionFeed jobs={jobs} onSelect={setSelected} />
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <Card className="p-5">
+            <div className="mb-4 text-[13px] font-semibold">Policy compliance</div>
+            <div className="flex items-center gap-5">
+              <Donut value={MOCK.policyCompliance} color="#16a34a" sub="auto-met" />
+              <div className="flex flex-col gap-2 text-[12.5px]">
+                <Legend color="#16a34a" label="Auto-satisfied" value={m.policies_auto} />
+                <Legend color="#d97706" label="Needs approval" value={m.policies_need_approval} />
+                <Legend color="#94a3b8" label="Pending" value={m.policies_pending} />
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <div className="flex items-baseline justify-between">
+              <span className="text-[13px] font-semibold">Time waiting on approval</span>
+              <span className="text-[13px] font-semibold tabular-nums" style={{ color: "#d97706" }}>{MOCK.waitingOnApproval}</span>
+            </div>
+            <p className="mb-2 text-[11.5px] text-muted-foreground">avg across {needsAttention} awaiting sign-off</p>
+            <AreaTrend values={MOCK.waitTrend} color="#d97706" height={64} />
+          </Card>
+        </div>
       </section>
 
       <Card className="animate-fade-up overflow-hidden p-0" style={{ animationDelay: "100ms" }}>
@@ -105,6 +109,16 @@ export function Overview() {
       </Card>
 
       <JobDrawer job={selected} onClose={() => setSelected(null)} />
+    </div>
+  );
+}
+
+function Legend({ color, label, value }: { color: string; label: string; value: number }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="size-2 rounded-full" style={{ background: color }} />
+      <span className="text-muted-foreground">{label}</span>
+      <span className="ml-auto font-medium tabular-nums">{value}</span>
     </div>
   );
 }

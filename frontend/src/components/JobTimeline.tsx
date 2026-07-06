@@ -93,7 +93,7 @@ export function JobTimeline({ job }: { job: Job }) {
               {s.state === "failed" && <X className="size-3.5 text-rose-600" />}
               {s.state === "pending" && <span className="size-1.5 rounded-full bg-border" />}
             </div>
-            <div className="min-w-0 flex-1 pb-4 pt-0.5 last:pb-0">
+            <div className="min-w-0 flex-1 pb-7 pt-1 last:pb-1">
               <div className="flex items-center justify-between gap-2">
                 <span className={cn("text-[13px] font-medium", s.state === "pending" && "text-muted-foreground")}>
                   {s.label}

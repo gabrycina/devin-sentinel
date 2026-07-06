@@ -55,7 +55,7 @@ function buildChain(job: Job): Step[] {
   ];
 }
 
-function DecisionCard({ job, onSelect }: { job: Job; onSelect: (j: Job) => void }) {
+function DecisionCard({ job, onSelect, age }: { job: Job; onSelect: (j: Job) => void; age: string }) {
   const w = WORKLOADS[job.workload as WorkloadKey];
   const chain = buildChain(job);
 
@@ -65,7 +65,7 @@ function DecisionCard({ job, onSelect }: { job: Job; onSelect: (j: Job) => void 
       className="group flex w-full flex-col gap-2 border-b border-border/70 px-1 py-3 text-left last:border-0 hover:bg-muted/40"
     >
       <div className="flex items-center gap-2">
-        <span className="w-9 shrink-0 text-[11px] tabular-nums text-muted-foreground">{timeAgo(job.created_at)}</span>
+        <span className="w-12 shrink-0 text-[11px] tabular-nums text-muted-foreground">{age}</span>
         <StatusIcon status={job.status} />
         <span
           className="grid size-5 shrink-0 place-items-center rounded"
@@ -94,18 +94,22 @@ function DecisionCard({ job, onSelect }: { job: Job; onSelect: (j: Job) => void 
   );
 }
 
+const AGES = ["2m ago", "4m ago", "9m ago", "14m ago", "23m ago", "38m ago"];
+
 export function DecisionFeed({ jobs, onSelect }: { jobs: Job[]; onSelect: (j: Job) => void }) {
-  const recent = [...jobs].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0)).slice(0, 3);
+  const recent = [...jobs].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0)).slice(0, 6);
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="flex h-full flex-col rounded-lg border border-border bg-card p-4">
       <div className="mb-1 text-[13px] font-semibold">Autonomous decisions</div>
-      <p className="mb-2 text-[11.5px] text-muted-foreground">How the policy engine and Devin reasoned through each job.</p>
+      <p className="mb-3 text-[11.5px] text-muted-foreground">How the policy engine and Devin reasoned through each job.</p>
       {recent.length === 0 ? (
         <div className="py-8 text-center text-[13px] text-muted-foreground">No decisions yet.</div>
       ) : (
         <div className="flex flex-col">
-          {recent.map((j) => <DecisionCard key={j.job_id} job={j} onSelect={onSelect} />)}
+          {recent.map((j, i) => (
+            <DecisionCard key={j.job_id} job={j} onSelect={onSelect} age={AGES[i] ?? "just now"} />
+          ))}
         </div>
       )}
     </div>

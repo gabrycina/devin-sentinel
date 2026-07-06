@@ -38,6 +38,46 @@ export function AreaTrend({
   );
 }
 
+export function Donut({
+  value,
+  color,
+  size = 116,
+  sub,
+}: {
+  value: number;
+  color: string;
+  size?: number;
+  sub?: string;
+}) {
+  const stroke = 10;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const off = c * (1 - Math.max(0, Math.min(100, value)) / 100);
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="hsl(var(--muted))" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={off}
+          style={{ transition: "stroke-dashoffset .6s cubic-bezier(0.4,0,0.2,1)" }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-[24px] font-semibold tabular-nums leading-none">{value}%</span>
+        {sub && <span className="mt-1 text-[10.5px] text-muted-foreground">{sub}</span>}
+      </div>
+    </div>
+  );
+}
+
 export function WorkloadBars({
   rows,
 }: {
