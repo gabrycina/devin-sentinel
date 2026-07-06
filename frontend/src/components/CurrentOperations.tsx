@@ -37,17 +37,22 @@ function OperationCard({ workloadKey, job, onSelect }: { workloadKey: WorkloadKe
   const w = WORKLOADS[workloadKey];
   const s = job ? stage(job) : null;
 
+  const active = !!s;
   return (
     <button
       onClick={() => (job ? onSelect(job) : nav(`/w/${workloadKey}`))}
-      className="flex w-full flex-col gap-2 rounded-lg border border-border bg-card px-3.5 py-3 text-left transition-all hover:shadow-md"
+      className="hover-lift flex w-full flex-col gap-2 rounded-lg border px-3.5 py-3 text-left"
+      style={{
+        borderColor: active ? tint(w.hex, 0.3) : "hsl(var(--border))",
+        background: active ? `linear-gradient(135deg, ${tint(w.hex, 0.07)}, transparent 70%)` : "hsl(var(--card))",
+      }}
     >
       <div className="flex items-center gap-2">
-        <div className="grid size-6 shrink-0 place-items-center rounded-md" style={{ background: tint(w.hex, 0.12), color: w.hex }}>
+        <div className="grid size-6 shrink-0 place-items-center rounded-md" style={{ background: tint(w.hex, 0.14), color: w.hex }}>
           <w.icon className="size-3.5" />
         </div>
         <span className="text-[12px] font-semibold" style={{ color: w.hex }}>{w.label}</span>
-        {job && <span className="ml-auto text-[10.5px] text-muted-foreground">{timeAgo(job.dispatched_at)}</span>}
+        {job && <span className="ml-auto text-[10.5px] tabular-nums text-muted-foreground">{timeAgo(job.dispatched_at)}</span>}
       </div>
 
       {s ? (
@@ -73,7 +78,10 @@ function OperationCard({ workloadKey, job, onSelect }: { workloadKey: WorkloadKe
 export function CurrentOperations({ jobs, onSelect }: { jobs: Job[]; onSelect: (j: Job) => void }) {
   return (
     <Card className="p-4">
-      <div className="mb-3 text-[13px] font-semibold">Current operations</div>
+      <div className="mb-3 flex items-baseline justify-between">
+        <span className="section-eyebrow">Current operations</span>
+        <span className="text-[11px] text-muted-foreground">live</span>
+      </div>
       <div className="flex flex-col gap-2">
         {WORKLOAD_ORDER.map((k) => (
           <OperationCard key={k} workloadKey={k} job={mostActive(jobs, k)} onSelect={onSelect} />

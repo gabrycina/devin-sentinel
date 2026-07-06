@@ -98,8 +98,8 @@ export function DecisionFeed({ jobs, onSelect }: { jobs: Job[]; onSelect: (j: Jo
   const recent = [...jobs].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0)).slice(0, 3);
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="mb-1 text-[13px] font-semibold">Autonomous decisions</div>
+    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+      <div className="mb-0.5 section-eyebrow">Autonomous decisions</div>
       <p className="mb-2 text-[11.5px] text-muted-foreground">How the policy engine and Devin reasoned through each job.</p>
       {recent.length === 0 ? (
         <div className="py-8 text-center text-[13px] text-muted-foreground">No decisions yet.</div>
