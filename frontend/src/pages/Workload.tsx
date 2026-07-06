@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useParams, Navigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { JobTable } from "@/components/JobTable";
+import { GroupedJobList } from "@/components/GroupedJobList";
 import { JobDrawer } from "@/components/JobDrawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePoll, type Job } from "@/lib/api";
@@ -73,7 +73,7 @@ export function Workload() {
         {!jobs ? (
           <div className="space-y-2 p-4">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-12" />)}</div>
         ) : (
-          <JobTable jobs={filtered} onSelect={setSelected} showWorkload={false} />
+          <GroupedJobList jobs={filtered} onSelect={setSelected} showWorkload={false} />
         )}
       </Card>
 
