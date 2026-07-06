@@ -1,67 +1,51 @@
-# Change-Governance Policy
-# ------------------------------------------------------------------------------
-# The rules engine classifies each incoming pull request into the highest tier
-# whose path globs match the changed files, then requires the listed engineering
-# artifacts. Devin produces them; artifacts under `human_approval_required` are
-# marked "needs approval" on the dashboard even after Devin generates them.
-#
-# This is the enterprise governance layer: it encodes an org's change-management
-# policy as config, so every change ships with its required paper trail.
-
 tiers:
-  - name: critical
-    description: Touches auth, security, data models, migrations, or dependencies
-    match_paths:
-      - "**/security/**"
-      - "**/*auth*"
-      - "**/migrations/**"
-      - "**/models*"
-      - "**/config*"
-      - "requirements/**"
-      - "requirements*.txt"
-    require:
-      - threat_model
-      - rollback_plan
-      - architecture_note
-      - migration_plan
-      - security_checklist
-      - changelog
-      - tests
-
-  - name: standard
-    description: Application source changes
-    match_paths:
-      - "**/*.py"
-      - "**/*.ts"
-      - "**/*.tsx"
-      - "**/*.js"
-    require:
-      - rollback_plan
-      - changelog
-      - tests
-
-  - name: low
-    description: Docs / config only
-    match_paths:
-      - "**/*.md"
-      - "**/*.json"
-      - "**/*.yaml"
-      - "**/*.yml"
-    require:
-      - changelog
-
-# Artifacts a human must sign off on even when Devin generates them.
-# These stay in "needs approval" so no critical change is fully auto-approved.
-human_approval_required:
+- name: critical
+  description: Touches auth, security, data models, migrations, or dependencies
+  match_paths:
+  - '**/security/**'
+  - '**/*auth*'
+  - '**/migrations/**'
+  - '**/models*'
+  - '**/config*'
+  - requirements/**
+  - requirements*.txt
+  require:
   - threat_model
+  - rollback_plan
+  - architecture_note
+  - migration_plan
   - security_checklist
-
-# Human-readable descriptions of each artifact (used in the Devin prompt + UI).
+  - changelog
+  - tests
+- name: standard
+  description: Application source changes
+  match_paths:
+  - '**/*.py'
+  - '**/*.ts'
+  - '**/*.tsx'
+  - '**/*.js'
+  require:
+  - rollback_plan
+  - changelog
+  - tests
+- name: low
+  description: Docs / config only
+  match_paths:
+  - '**/*.md'
+  - '**/*.json'
+  - '**/*.yaml'
+  - '**/*.yml'
+  require:
+  - changelog
+human_approval_required:
+- threat_model
+- security_checklist
 artifacts:
-  threat_model: "STRIDE-style threat model of the change and its attack surface"
-  rollback_plan: "Exact steps + commands to revert this change safely in production"
-  architecture_note: "ADR: context, decision, alternatives considered, consequences"
-  migration_plan: "Ordered migration/deploy steps, backfill, and forward/backward compatibility"
-  security_checklist: "OWASP-aligned checklist covering authz, input validation, secrets, logging"
-  changelog: "User-facing changelog entry for this change"
-  tests: "Confirmation that adequate automated tests cover the change (add if missing)"
+  threat_model: STRIDE-style threat model of the change and its attack surface
+  rollback_plan: Exact steps + commands to revert this change safely in production
+  architecture_note: 'ADR: context, decision, alternatives considered, consequences'
+  migration_plan: Ordered migration/deploy steps, backfill, and forward/backward compatibility
+  security_checklist: OWASP-aligned checklist covering authz, input validation, secrets,
+    logging
+  changelog: User-facing changelog entry for this change
+  tests: Confirmation that adequate automated tests cover the change (add if missing)

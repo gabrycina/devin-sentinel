@@ -1,8 +1,10 @@
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** Minimal right-side slide-over (no external deps). */
+/** Right-side slide-over. Portaled to <body> so it escapes the frosted window's
+ *  backdrop-filter containing block (otherwise `fixed` clips inside it). */
 export function Sheet({
   open,
   onClose,
@@ -20,12 +22,12 @@ export function Sheet({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  return (
-    <div className={cn("fixed inset-0 z-50", open ? "pointer-events-auto" : "pointer-events-none")}>
+  return createPortal(
+    <div className={cn("fixed inset-0 z-[100]", open ? "pointer-events-auto" : "pointer-events-none")}>
       <div
         onClick={onClose}
         className={cn(
-          "absolute inset-0 bg-foreground/20 backdrop-blur-[1px] transition-opacity duration-300",
+          "absolute inset-0 bg-black/25 backdrop-blur-[1px] transition-opacity duration-300",
           open ? "opacity-100" : "opacity-0"
         )}
       />
@@ -38,12 +40,14 @@ export function Sheet({
       >
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 rounded-md p-1.5 text-muted-foreground hover:bg-muted"
+          className="absolute right-4 top-4 z-10 rounded-md p-1.5 text-muted-foreground hover:bg-muted"
+          aria-label="Close"
         >
           <X className="size-4" />
         </button>
-        <div className="h-full overflow-y-auto">{children}</div>
+        <div className="h-full overflow-y-auto">{open ? children : null}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

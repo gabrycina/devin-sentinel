@@ -225,9 +225,14 @@ if (FRONTEND_DIST / "assets").exists():
     app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
 
 
-@app.get("/{full_path:path}", response_class=HTMLResponse)
+@app.get("/{full_path:path}")
 async def spa(full_path: str):
+    # Serve real static files at the dist root (bg.jpg, favicon, …).
+    if full_path:
+        candidate = (FRONTEND_DIST / full_path).resolve()
+        if FRONTEND_DIST.resolve() in candidate.parents and candidate.is_file():
+            return FileResponse(candidate)
     index = FRONTEND_DIST / "index.html"
     if index.exists():
-        return FileResponse(index)
+        return FileResponse(index)  # SPA routes -> index.html
     return HTMLResponse(render_dashboard(metrics.compute(), store.all_jobs(), store.recent_events(20)))
